@@ -26,6 +26,7 @@ from tests.support.data_types import (
     observe_parquet_dataset,
 )
 from tests.support.datatype_config import require_docker_services
+from tests.support.s3_config import host_s3_properties
 
 
 pytestmark = [
@@ -78,13 +79,7 @@ def _iceberg_catalog():
         "datacoolie-database-qualification",
         type="rest",
         uri="http://localhost:8181",
-        **{
-            "s3.endpoint": "http://localhost:9000",
-            "s3.access-key-id": "minioadmin",
-            "s3.secret-access-key": "minioadmin",
-            "s3.path-style-access": "true",
-            "s3.region": "us-east-1",
-        },
+        **host_s3_properties(),
     )
 
 
@@ -332,7 +327,7 @@ def test_database_source_matches_between_polars_and_spark(
 ) -> None:
     """Run one live source snapshot through both framework readers."""
 
-    required = ["spark", "minio", "iceberg-rest"]
+    required = ["spark", "rustfs", "iceberg-rest"]
     if service:
         required.insert(0, service)
     require_docker_services(required)

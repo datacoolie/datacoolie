@@ -13,7 +13,7 @@ Usage (from the datacoolie/ directory):
     python usecase-sim/runner/run_perf_benchmark.py \\
         --engine spark --max-size 1m --no-iceberg
 
-    # All stages including iceberg (requires REST catalog + MinIO)
+    # All stages including iceberg (requires REST catalog + RustFS)
     python usecase-sim/runner/run_perf_benchmark.py --engine polars --max-size 1m
 
     # Render markdown report (requires both result files to exist)
@@ -158,7 +158,7 @@ def _shared_metadata_kwargs(metadata_path: str) -> dict[str, str]:
 
 def _build_polars_driver(metadata_path: str, needs_iceberg: bool = True):
     """Return a configured PolarsEngine DataCoolieDriver."""
-    from _runner_utils import MINIO_STORAGE_OPTIONS, build_iceberg_rest_catalog  # noqa: PLC0415
+    from _runner_utils import build_iceberg_rest_catalog, s3_storage_options  # noqa: PLC0415
 
     from datacoolie.core import DataCoolieRunConfig  # noqa: PLC0415
     from datacoolie.engines import PolarsEngine  # noqa: PLC0415
@@ -166,11 +166,11 @@ def _build_polars_driver(metadata_path: str, needs_iceberg: bool = True):
     from datacoolie.orchestration import DataCoolieDriver  # noqa: PLC0415
     from datacoolie.platforms import LocalPlatform  # noqa: PLC0415
 
-    storage_opts = dict(MINIO_STORAGE_OPTIONS)
+    storage_opts = s3_storage_options()
     platform = LocalPlatform()
     iceberg_catalog = None
     if needs_iceberg:
-        # Large local MinIO writes can fail under pyiceberg's default
+        # Large local RustFS writes can fail under pyiceberg's default
         # threaded writer fan-out. Keep the benchmark stable unless the
         # caller already provided an explicit override.
         os.environ.setdefault("PYICEBERG_MAX_WORKERS", "1")
@@ -672,7 +672,7 @@ def generate_report(output_dir: Path) -> str:
     lines.append("- All runs use `max_workers=1` (single-threaded) for a fair serial comparison.")
     lines.append("- Iceberg stages use `merge_upsert`; overwrite stages use full replace.")
     lines.append("- Delta stages depend on parquet→delta having run first (seed dependency).")
-    lines.append("- Iceberg stages require the local REST catalog (tabulario/iceberg-rest) + MinIO.")
+    lines.append("- Iceberg stages require the local REST catalog (tabulario/iceberg-rest) + RustFS.")
     lines.append("")
 
     report = "\n".join(lines)

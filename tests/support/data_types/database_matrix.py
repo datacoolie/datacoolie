@@ -8,16 +8,18 @@ or resolver is imported here.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import sqlite3
 import subprocess
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 import pytest
 
@@ -27,6 +29,13 @@ SIM_ROOT = PRODUCT_ROOT / "usecase-sim"
 if str(SIM_ROOT) not in sys.path:
     sys.path.insert(0, str(SIM_ROOT))
 from runner.metadata_sources import recipe_document  # noqa: E402
+
+
+_MATRIX_DRIVER_MODULES = {
+    "mysql": "pymysql",
+    "mssql": "pymssql",
+    "oracle": "oracledb",
+}
 
 
 @dataclass(slots=True)
@@ -45,6 +54,66 @@ def _safe_identifier(value: str) -> str:
     return value
 
 
+def require_matrix_drivers(dialects: Iterable[str]) -> None:
+    """Fail qualification when a selected native driver cannot be imported.
+
+    ``pytest.importorskip`` is useful for optional tests, but a qualification
+    matrix must not report a green run with a silently skipped vendor cell.
+    Import errors are surfaced as a usage error before any source is seeded.
+    """
+
+    failures: list[str] = []
+    for dialect in dict.fromkeys(dialects):
+        module_name = _MATRIX_DRIVER_MODULES.get(dialect)
+        if module_name is None:
+            continue
+        try:
+            importlib.import_module(module_name)
+        except Exception as exc:  # noqa: BLE001 - include native loader failures
+            failures.append(f"{dialect} ({module_name}): {type(exc).__name__}: {exc}")
+    if failures:
+        raise pytest.UsageError(
+            "Database matrix native drivers are unavailable: " + "; ".join(failures)
+        )
+
+
+@contextmanager
+def _seed_sqlalchemy_transaction(database: Any, sql: Any, table: str):
+    """Drop a partially-created table if seeding raises before return."""
+
+    try:
+        with database.begin() as connection:
+            yield connection
+    except BaseException:
+        try:
+            with database.begin() as connection:
+                connection.execute(sql(f"DROP TABLE IF EXISTS {table}"))
+        except Exception:
+            pass
+        finally:
+            database.dispose()
+        raise
+
+
+@contextmanager
+def _seed_oracle_cursor(connection: Any, table: str):
+    """Drop a partially-created Oracle table if fixture seeding raises."""
+
+    try:
+        with connection.cursor() as cursor:
+            yield cursor
+    except BaseException:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP TABLE {table} PURGE")
+            connection.commit()
+        except Exception:
+            pass
+        finally:
+            connection.close()
+        raise
+
+
 def _seed_mysql(table: str) -> SeededMatrixSource:
     sqlalchemy = pytest.importorskip("sqlalchemy")
     database = sqlalchemy.create_engine(
@@ -55,7 +124,7 @@ def _seed_mysql(table: str) -> SeededMatrixSource:
     )
     sql = sqlalchemy.text
     table = _safe_identifier(table)
-    with database.begin() as connection:
+    with _seed_sqlalchemy_transaction(database, sql, table) as connection:
         connection.execute(
             sql(
                 f"CREATE TABLE {table} ("
@@ -118,7 +187,7 @@ def _seed_mssql(table: str) -> SeededMatrixSource:
     )
     sql = sqlalchemy.text
     table = _safe_identifier(table)
-    with database.begin() as connection:
+    with _seed_sqlalchemy_transaction(database, sql, table) as connection:
         connection.execute(
             sql(
                 f"CREATE TABLE {table} ("
@@ -185,7 +254,7 @@ def _seed_oracle(table: str) -> SeededMatrixSource:
             "DATACOOLIE_QUALIFICATION_ORACLE_DSN", "localhost:1521/FREEPDB1"
         ),
     )
-    with connection.cursor() as cursor:
+    with _seed_oracle_cursor(connection, table) as cursor:
         cursor.execute(
             f"CREATE TABLE {table} ("
             "ora_row_id NUMBER(10,0), ora_number NUMBER(18,2), "

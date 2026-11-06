@@ -28,12 +28,13 @@ if str(PRODUCT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PRODUCT_ROOT / "src"))
 
 from runner.runtime_paths import DATA_DIR  # noqa: E402
+from runner.s3_config import get_s3_config  # noqa: E402
 
 
 ALLOWED_ROUTES = frozenset(("http://localhost:8181", "http://iceberg-rest:8181"))
 EXPECTED_WAREHOUSE = "s3://datacoolie-test/iceberg-warehouse"
 AWS_METADATA_PREFIX = "metadata/maintenance_t5/"
-ALLOWED_S3_ENDPOINTS = frozenset(("http://localhost:9000", "http://minio:9000"))
+ALLOWED_S3_ENDPOINTS = frozenset(("http://localhost:9000", "http://rustfs:9000"))
 
 
 def _path(value: str, *, option: str) -> Path:
@@ -57,11 +58,11 @@ def _catalog(uri: str, s3_endpoint: str):
         uri=uri,
         **{
             "s3.endpoint": s3_endpoint,
-            "s3.access-key-id": os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
+            "s3.access-key-id": os.getenv("AWS_ACCESS_KEY_ID", get_s3_config().access_key),
             "s3.secret-access-key": os.getenv(
-                "AWS_SECRET_ACCESS_KEY", "minioadmin"
+                "AWS_SECRET_ACCESS_KEY", get_s3_config().secret_key
             ),
-            "s3.region": os.getenv("AWS_REGION", "us-east-1"),
+            "s3.region": os.getenv("AWS_REGION", get_s3_config().region),
             "s3.path-style-access": "true",
         },
     )
@@ -86,7 +87,7 @@ def _validate_deployment_inputs(
         )
     if s3_endpoint not in ALLOWED_S3_ENDPOINTS:
         raise ValueError(
-            "REST qualification accepts only the checked-in MinIO endpoints"
+            "REST qualification accepts only the checked-in RustFS endpoints"
         )
     return tuple(dict.fromkeys(routes))
 
@@ -234,9 +235,9 @@ def _aws_client(endpoint: str):
     return boto3.client(
         "s3",
         endpoint_url=endpoint,
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        region_name=os.getenv("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", get_s3_config().access_key),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", get_s3_config().secret_key),
+        region_name=os.getenv("AWS_REGION", get_s3_config().region),
     )
 
 
@@ -473,7 +474,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--s3-endpoint",
-        default=os.getenv("DATACOOLIE_QUALIFICATION_MINIO_ENDPOINT", "http://localhost:9000"),
+        default=os.getenv("DATACOOLIE_SIM_S3_ENDPOINT", "http://localhost:9000"),
     )
     parser.add_argument(
         "--aws-metadata-key",

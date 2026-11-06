@@ -1,4 +1,4 @@
-"""Validate Iceberg replay output and same-range replacement on MinIO."""
+"""Validate Iceberg replay output and same-range replacement on RustFS."""
 
 from __future__ import annotations
 
@@ -11,14 +11,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.runtime_paths import DATACOOLIE_ROOT
 from runner.owned_process import run_owned
+from runner.s3_config import get_s3_config
 
 import boto3
 from botocore.config import Config
 from pyiceberg.catalog import load_catalog
 
 
-BUCKET = "datacoolie-test"
-ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
+S3_CONFIG = get_s3_config()
+BUCKET = S3_CONFIG.bucket
+ENDPOINT = S3_CONFIG.endpoint
 ICEBERG_URI = os.environ.get("DATACOOLIE_ICEBERG_URI", "http://localhost:8181")
 
 
@@ -26,9 +28,9 @@ def _client():
     return boto3.client(
         "s3",
         endpoint_url=ENDPOINT,
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", S3_CONFIG.access_key),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", S3_CONFIG.secret_key),
+        region_name=os.environ.get("AWS_REGION", S3_CONFIG.region),
         config=Config(signature_version="s3v4"),
     )
 
@@ -40,10 +42,10 @@ def _catalog():
         uri=ICEBERG_URI,
         **{
             "s3.endpoint": ENDPOINT,
-            "s3.access-key-id": os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
-            "s3.secret-access-key": os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+            "s3.access-key-id": os.environ.get("AWS_ACCESS_KEY_ID", S3_CONFIG.access_key),
+            "s3.secret-access-key": os.environ.get("AWS_SECRET_ACCESS_KEY", S3_CONFIG.secret_key),
             "s3.path-style-access": "true",
-            "s3.region": os.environ.get("AWS_REGION", "us-east-1"),
+            "s3.region": os.environ.get("AWS_REGION", S3_CONFIG.region),
         },
     )
 
@@ -129,7 +131,7 @@ def main() -> int:
         raise AssertionError("Saved Iceberg replay watermark order_date=2024-01-17 not found")
 
     print(
-        "validated MinIO Iceberg replay/replacement: "
+        "validated RustFS Iceberg replay/replacement: "
         f"engine={args.engine} rows={len(second_ids)} ids={second_ids} "
         f"snapshots={first_snapshots}->{second_snapshots} "
         "range=[2024-01-15,2024-01-18)"

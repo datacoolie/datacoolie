@@ -7,12 +7,13 @@ from uuid import uuid4
 import pytest
 
 from tests.support.datatype_config import require_docker_services
+from tests.support.s3_config import host_s3_properties
 
 pytestmark = [pytest.mark.integration, pytest.mark.runtime_qualification]
 
 
 def test_polars_snapshot_expiration_retains_null_file_measurements():
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     from pyiceberg.catalog.rest import RestCatalog
     from pyiceberg.schema import Schema
     from pyiceberg.types import LongType, NestedField
@@ -28,9 +29,7 @@ def test_polars_snapshot_expiration_retains_null_file_measurements():
     from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo, DataFlowRuntimeInfo
     from datacoolie.orchestration.runtime import JobRuntimeInfo
 
-    catalog = RestCatalog("catalog", uri="http://localhost:8181", **{
-        "s3.endpoint": "http://localhost:9000", "s3.access-key-id": "minioadmin",
-        "s3.secret-access-key": "minioadmin", "s3.region": "us-east-1"})
+    catalog = RestCatalog("catalog", uri="http://localhost:8181", **host_s3_properties())
     namespace = "observed_polars_" + uuid4().hex
     catalog.create_namespace(namespace)
     table_schema = Schema(NestedField(1, "id", LongType(), required=False))
@@ -66,7 +65,7 @@ def test_polars_snapshot_expiration_retains_null_file_measurements():
 
 @pytest.mark.spark
 def test_spark_observed_zero_and_unentered_maintenance():
-    require_docker_services(("spark", "minio", "iceberg-rest"))
+    require_docker_services(("spark", "rustfs", "iceberg-rest"))
     manifest = os.environ["DATACOOLIE_GUARD_MANIFEST"]
     result = subprocess.run(["docker", "exec", "-e", f"DATACOOLIE_GUARD_MANIFEST={manifest}",
         "datacoolie-spark", "python3", "/datacoolie/tests/support/spark_observed_metrics_worker.py"],

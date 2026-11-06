@@ -158,7 +158,7 @@
       "intent": "REST Iceberg native action effects and unsupported preflight",
       "contract": "src/datacoolie/orchestration/maintenance.py",
       "coverage": "asserted",
-      "gap": "Focused local and AWS-MinIO REST qualification is isolated by engine, case-owned metadata/log roots, deployment descriptor and native guard manifest; physical file reclamation for Polars expiration remains outside the oracle.",
+      "gap": "Focused local and AWS-RustFS REST qualification is isolated by engine, case-owned metadata/log roots, deployment descriptor and native guard manifest; physical file reclamation for Polars expiration remains outside the oracle.",
       "assertion_owners": [
         "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py::validate"
       ],
@@ -894,7 +894,7 @@
         }
       ],
       "coverage": "fixture_only",
-      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-MinIO recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
+      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-RustFS recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
       "dependencies": [],
       "next_action": "strengthen_oracle"
     },
@@ -917,7 +917,7 @@
         "local_polars_iceberg_maintenance"
       ],
       "preconditions": [
-        "The scoped REST catalog and MinIO service are available; the setup script creates a UUID-suffixed namespace, protected sentinel and target snapshots.",
+        "The scoped REST catalog and RustFS service are available; the setup script creates a UUID-suffixed namespace, protected sentinel and target snapshots.",
         "The caller supplies the attested deployment descriptor; the validator owns a fresh simulator data, watermark and receipt root."
       ],
       "expected": "Only cleanup.expire_snapshots is selected; eligible snapshot IDs change, protected refs and rows remain unchanged, nested metrics are truthful and Polars reports no file reclamation.",
@@ -1605,7 +1605,7 @@
         }
       ],
       "coverage": "fixture_only",
-      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-MinIO recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
+      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-RustFS recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
       "dependencies": [],
       "next_action": "strengthen_oracle"
     },
@@ -1628,7 +1628,7 @@
         "local_spark_iceberg_maintenance"
       ],
       "preconditions": [
-        "The pinned Spark 3.5.9/Iceberg 1.10.1 runtime, scoped REST catalog and MinIO service are available.",
+        "The pinned Spark 3.5.9/Iceberg 1.10.1 runtime, scoped REST catalog and RustFS service are available.",
         "The caller supplies the attested deployment descriptor and canonical native guard manifest; the validator owns a fresh simulator data, watermark and receipt root."
       ],
       "expected": "Only cleanup.expire_snapshots is selected through the guarded native Spark path; eligible snapshot IDs change, protected refs and rows remain unchanged, and the repeated no-work call succeeds explicitly.",
@@ -1649,7 +1649,7 @@
     {
       "id": "aws_polars_delta_maintenance",
       "behavior": "maintenance.eligible_protected_data",
-      "intent": "Maintenance compact + cleanup on AWS delta via Polars (requires MinIO)",
+      "intent": "Maintenance compact + cleanup on AWS delta via Polars (requires RustFS)",
       "contract": "src/datacoolie/orchestration/maintenance.py",
       "flows": [],
       "scenarios": [
@@ -1670,7 +1670,7 @@
         }
       ],
       "coverage": "fixture_only",
-      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-MinIO recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
+      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-RustFS recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
       "dependencies": [],
       "next_action": "strengthen_oracle"
     },
@@ -1693,7 +1693,7 @@
         "aws_polars_iceberg_maintenance"
       ],
       "preconditions": [
-        "MinIO and iceberg-rest services are available; setup creates a UUID-suffixed namespace and uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
+        "RustFS and iceberg-rest services are available; setup creates a UUID-suffixed namespace and uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
         "The normal AWS-platform runner writes state, watermarks and v6 logs below case-owned S3 prefixes; the validator downloads only that prefix."
       ],
       "expected": "Only cleanup.expire_snapshots is selected; eligible snapshot IDs change, protected refs, sentinel rows/schema and target rows remain unchanged, and Polars reports no file reclamation.",
@@ -1707,14 +1707,14 @@
         }
       ],
       "coverage": "asserted",
-      "gap": "AWS here means the checked-in AWSPlatform/MinIO simulation; real cloud IAM/network behavior and physical file reclamation for Polars are outside this receipt.",
+      "gap": "AWS here means the checked-in AWSPlatform/RustFS simulation; real cloud IAM/network behavior and physical file reclamation for Polars are outside this receipt.",
       "dependencies": [],
       "next_action": "qualify_profile"
     },
     {
       "id": "aws_spark_delta_maintenance",
       "behavior": "maintenance.eligible_protected_data",
-      "intent": "Maintenance compact + cleanup on AWS delta via Spark (requires MinIO)",
+      "intent": "Maintenance compact + cleanup on AWS delta via Spark (requires RustFS)",
       "contract": "src/datacoolie/orchestration/maintenance.py",
       "flows": [],
       "scenarios": [
@@ -1735,7 +1735,7 @@
         }
       ],
       "coverage": "fixture_only",
-      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-MinIO recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
+      "gap": "Retained broad recipe and historical logs are not the exact qualification. Use the referenced focused local/AWS-RustFS recipes for native effects and unsupported dispositions; dedicated_scenarios stays empty to preserve this baseline.",
       "dependencies": [],
       "next_action": "strengthen_oracle"
     },
@@ -1758,7 +1758,7 @@
         "aws_spark_iceberg_maintenance"
       ],
       "preconditions": [
-        "Pinned Spark 3.5.9/Iceberg 1.10.1, MinIO and iceberg-rest services are available; setup uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
+        "Pinned Spark 3.5.9/Iceberg 1.10.1, RustFS and iceberg-rest services are available; setup uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
         "The caller supplies the attested deployment descriptor and canonical native guard manifest; AWS state, watermarks and logs use case-owned S3 prefixes."
       ],
       "expected": "Only cleanup.expire_snapshots is selected through the guarded native Spark path; eligible snapshot IDs change, protected refs, sentinel rows/schema and target rows remain unchanged, and repeated no-work succeeds explicitly.",
@@ -1772,7 +1772,7 @@
         }
       ],
       "coverage": "asserted",
-      "gap": "AWS here means the checked-in AWSPlatform/MinIO simulation; real cloud IAM/network behavior remains outside this receipt.",
+      "gap": "AWS here means the checked-in AWSPlatform/RustFS simulation; real cloud IAM/network behavior remains outside this receipt.",
       "dependencies": [],
       "next_action": "qualify_profile"
     },
@@ -1795,7 +1795,7 @@
         "local_polars_iceberg_expiration_effect"
       ],
       "preconditions": [
-        "The scoped REST catalog and MinIO service are available; the setup script creates a UUID-suffixed namespace, protected sentinel and target snapshots.",
+        "The scoped REST catalog and RustFS service are available; the setup script creates a UUID-suffixed namespace, protected sentinel and target snapshots.",
         "The caller supplies the attested deployment descriptor; the validator owns a fresh simulator data, watermark and receipt root."
       ],
       "expected": "Only cleanup.expire_snapshots is selected; eligible snapshot IDs change, protected refs and rows remain unchanged, nested metrics are truthful and Polars reports no file reclamation.",
@@ -1832,7 +1832,7 @@
         "local_spark_iceberg_expiration_effect"
       ],
       "preconditions": [
-        "The pinned Spark 3.5.9/Iceberg 1.10.1 runtime, scoped REST catalog and MinIO service are available.",
+        "The pinned Spark 3.5.9/Iceberg 1.10.1 runtime, scoped REST catalog and RustFS service are available.",
         "The caller supplies the attested deployment descriptor and canonical native guard manifest; the validator owns a fresh simulator data, watermark and receipt root."
       ],
       "expected": "Only cleanup.expire_snapshots is selected through the guarded native Spark path; eligible snapshot IDs change, protected refs and rows remain unchanged, and the repeated no-work call succeeds explicitly.",
@@ -1869,7 +1869,7 @@
         "error_messages.local_polars_iceberg_unsupported_compact"
       ],
       "preconditions": [
-        "The scoped REST catalog and MinIO service are available; a fresh target is prepared before the unsupported request."
+        "The scoped REST catalog and RustFS service are available; a fresh target is prepared before the unsupported request."
       ],
       "expected": "A Polars compaction action fails with an explicit unsupported reason before any snapshot, ref, row or successful action effect changes.",
       "assertion_owners": [
@@ -1905,7 +1905,7 @@
         "error_messages.local_polars_iceberg_unsupported_orphan_files"
       ],
       "preconditions": [
-        "The scoped REST catalog and MinIO service are available; a fresh target is prepared before the unsupported request."
+        "The scoped REST catalog and RustFS service are available; a fresh target is prepared before the unsupported request."
       ],
       "expected": "A Polars orphan-file action fails with an explicit unsupported reason before any snapshot, ref, row or successful action effect changes.",
       "assertion_owners": [
@@ -1925,7 +1925,7 @@
     {
       "id": "aws_polars_iceberg_expiration_effect",
       "behavior": "maintenance.iceberg_rest_native_effects",
-      "intent": "Focused AWS-MinIO REST Iceberg expiration-only effect via Polars",
+      "intent": "Focused AWS-RustFS REST Iceberg expiration-only effect via Polars",
       "contract": "src/datacoolie/orchestration/maintenance.py",
       "flows": [
         {
@@ -1941,7 +1941,7 @@
         "aws_polars_iceberg_expiration_effect"
       ],
       "preconditions": [
-        "MinIO and iceberg-rest services are available; setup creates a UUID-suffixed namespace and uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
+        "RustFS and iceberg-rest services are available; setup creates a UUID-suffixed namespace and uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
         "The normal AWS-platform runner writes state, watermarks and v6 logs below case-owned S3 prefixes; the validator downloads only that prefix."
       ],
       "expected": "Only cleanup.expire_snapshots is selected; eligible snapshot IDs change, protected refs, sentinel rows/schema and target rows remain unchanged, and Polars reports no file reclamation.",
@@ -1955,14 +1955,14 @@
         }
       ],
       "coverage": "asserted",
-      "gap": "AWS here means the checked-in AWSPlatform/MinIO simulation; real cloud IAM/network behavior and physical file reclamation for Polars are outside this receipt.",
+      "gap": "AWS here means the checked-in AWSPlatform/RustFS simulation; real cloud IAM/network behavior and physical file reclamation for Polars are outside this receipt.",
       "dependencies": [],
       "next_action": "qualify_profile"
     },
     {
       "id": "aws_spark_iceberg_expiration_effect",
       "behavior": "maintenance.iceberg_rest_native_effects",
-      "intent": "Focused AWS-MinIO guarded REST Iceberg expiration-only effect via Spark",
+      "intent": "Focused AWS-RustFS guarded REST Iceberg expiration-only effect via Spark",
       "contract": "src/datacoolie/orchestration/maintenance.py",
       "flows": [
         {
@@ -1978,7 +1978,7 @@
         "aws_spark_iceberg_expiration_effect"
       ],
       "preconditions": [
-        "Pinned Spark 3.5.9/Iceberg 1.10.1, MinIO and iceberg-rest services are available; setup uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
+        "Pinned Spark 3.5.9/Iceberg 1.10.1, RustFS and iceberg-rest services are available; setup uploads generated metadata only to the case-owned maintenance_t5 S3 key.",
         "The caller supplies the attested deployment descriptor and canonical native guard manifest; AWS state, watermarks and logs use case-owned S3 prefixes."
       ],
       "expected": "Only cleanup.expire_snapshots is selected through the guarded native Spark path; eligible snapshot IDs change, protected refs, sentinel rows/schema and target rows remain unchanged, and repeated no-work succeeds explicitly.",
@@ -1992,14 +1992,14 @@
         }
       ],
       "coverage": "asserted",
-      "gap": "AWS here means the checked-in AWSPlatform/MinIO simulation; real cloud IAM/network behavior remains outside this receipt.",
+      "gap": "AWS here means the checked-in AWSPlatform/RustFS simulation; real cloud IAM/network behavior remains outside this receipt.",
       "dependencies": [],
       "next_action": "qualify_profile"
     },
     {
       "id": "aws_polars_iceberg_unsupported_compact",
       "behavior": "maintenance.iceberg_rest_native_effects",
-      "intent": "Focused AWS-MinIO unsupported Polars REST Iceberg compaction request",
+      "intent": "Focused AWS-RustFS unsupported Polars REST Iceberg compaction request",
       "contract": "src/datacoolie/orchestration/maintenance.py",
       "flows": [
         {
@@ -2015,7 +2015,7 @@
         "error_messages.aws_polars_iceberg_unsupported_compact"
       ],
       "preconditions": [
-        "MinIO and iceberg-rest services are available; a fresh UUID-suffixed target and case-owned AWS metadata key are prepared before the request."
+        "RustFS and iceberg-rest services are available; a fresh UUID-suffixed target and case-owned AWS metadata key are prepared before the request."
       ],
       "expected": "A Polars compaction action fails with an explicit unsupported reason before any snapshot, ref, sentinel, row or successful action effect changes.",
       "assertion_owners": [
@@ -2028,14 +2028,14 @@
         }
       ],
       "coverage": "asserted",
-      "gap": "AWS here means the checked-in AWSPlatform/MinIO simulation; real cloud unsupported behavior is outside this receipt.",
+      "gap": "AWS here means the checked-in AWSPlatform/RustFS simulation; real cloud unsupported behavior is outside this receipt.",
       "dependencies": [],
       "next_action": "qualify_profile"
     },
     {
       "id": "aws_polars_iceberg_unsupported_orphan_files",
       "behavior": "maintenance.iceberg_rest_native_effects",
-      "intent": "Focused AWS-MinIO unsupported Polars REST Iceberg orphan-file request",
+      "intent": "Focused AWS-RustFS unsupported Polars REST Iceberg orphan-file request",
       "contract": "src/datacoolie/orchestration/maintenance.py",
       "flows": [
         {
@@ -2051,7 +2051,7 @@
         "error_messages.aws_polars_iceberg_unsupported_orphan_files"
       ],
       "preconditions": [
-        "MinIO and iceberg-rest services are available; a fresh UUID-suffixed target and case-owned AWS metadata key are prepared before the request."
+        "RustFS and iceberg-rest services are available; a fresh UUID-suffixed target and case-owned AWS metadata key are prepared before the request."
       ],
       "expected": "A Polars orphan-file action fails with an explicit unsupported reason before any snapshot, ref, sentinel, row or successful action effect changes.",
       "assertion_owners": [
@@ -2064,7 +2064,7 @@
         }
       ],
       "coverage": "asserted",
-      "gap": "AWS here means the checked-in AWSPlatform/MinIO simulation; real cloud unsupported behavior is outside this receipt.",
+      "gap": "AWS here means the checked-in AWSPlatform/RustFS simulation; real cloud unsupported behavior is outside this receipt.",
       "dependencies": [],
       "next_action": "qualify_profile"
     },

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 from uuid import uuid4
@@ -27,11 +28,12 @@ def main() -> None:
         "CATALOG_URI": "jdbc:sqlite:/tmp/qualification.db",
         "CATALOG_WAREHOUSE": warehouse,
         "CATALOG_IO__IMPL": "org.apache.iceberg.aws.s3.S3FileIO",
-        "CATALOG_S3_ENDPOINT": "http://minio:9000",
-        "CATALOG_S3_ACCESS__KEY__ID": "minioadmin",
-        "CATALOG_S3_SECRET__ACCESS__KEY": "minioadmin",
-        "CATALOG_S3_PATH__STYLE__ACCESS": "true", "CATALOG_S3_REGION": "us-east-1",
-        "AWS_REGION": "us-east-1",
+        "CATALOG_S3_ENDPOINT": os.getenv("DATACOOLIE_SIM_S3_ENDPOINT", "http://rustfs:9000"),
+        "CATALOG_S3_ACCESS__KEY__ID": os.getenv("DATACOOLIE_SIM_S3_ACCESS_KEY", "minioadmin"),
+        "CATALOG_S3_SECRET__ACCESS__KEY": os.getenv("DATACOOLIE_SIM_S3_SECRET_KEY", "minioadmin"),
+        "CATALOG_S3_PATH__STYLE__ACCESS": "true",
+        "CATALOG_S3_REGION": os.getenv("DATACOOLIE_SIM_S3_REGION", "us-east-1"),
+        "AWS_REGION": os.getenv("DATACOOLIE_SIM_S3_REGION", "us-east-1"),
     }
     for key, value in options.items():
         args.extend(("--env", f"{key}={value}"))

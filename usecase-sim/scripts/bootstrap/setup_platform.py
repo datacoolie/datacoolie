@@ -3,7 +3,7 @@
 Usage:
     python usecase-sim/scripts/bootstrap/setup_platform.py              # up -d, wait for health
     python usecase-sim/scripts/bootstrap/setup_platform.py --down       # compose down
-    python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres minio
+    python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres rustfs
 """
 from __future__ import annotations
 
@@ -21,8 +21,9 @@ from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
-from _common import COMPOSE_FILE, port_open, setup_logging  # noqa: E402
+from _common import COMPOSE_FILE, ensure_bucket, port_open, setup_logging  # noqa: E402
 from runner.compose_config import compose_file_arguments, compose_startup_arguments  # noqa: E402
+from runner.s3_config import get_s3_config  # noqa: E402
 
 logger = setup_logging("setup_platform")
 
@@ -32,7 +33,7 @@ _SERVICE_PORTS: dict[str, tuple[str, int]] = {
     "mysql":        ("localhost", 3306),
     "mssql":        ("localhost", 1433),
     "oracle":       ("localhost", 1521),
-    "minio":        ("localhost", 9000),
+    "rustfs":       ("localhost", 9000),
     "iceberg-rest": ("localhost", 8181),
     "trino":        ("localhost", 8080),
     "mock-api":     ("localhost", 8082),
@@ -69,7 +70,7 @@ def _wait_for_ports(services: list[str], timeout: int) -> bool:
     return not remaining
 
 
-def _ensure_mssql_database(timeout: int = 60) -> None:
+def _ensure_mssql_database(timeout: int = 60) -> bool:
     """Create the `datacoolie` user database on MSSQL if missing.
 
     The mcr.microsoft.com/mssql/server image has no env var equivalent to
@@ -80,7 +81,8 @@ def _ensure_mssql_database(timeout: int = 60) -> None:
     """
     docker = shutil.which("docker")
     if docker is None:
-        return
+        logger.warning("mssql: docker CLI not found; cannot verify datacoolie database")
+        return False
     deadline = time.monotonic() + timeout
     cmd = [
         docker, "exec", "datacoolie-mssql",
@@ -93,11 +95,28 @@ def _ensure_mssql_database(timeout: int = 60) -> None:
         proc = subprocess.run(cmd, capture_output=True)
         if proc.returncode == 0:
             logger.info("mssql           ✓ datacoolie database present")
-            return
+            return True
         last_err = proc.stderr or proc.stdout
         time.sleep(2)
     logger.warning("mssql: could not ensure datacoolie database (%s)",
                    last_err.decode(errors="replace").strip()[:200])
+    return False
+
+
+def _ensure_rustfs_bucket() -> bool:
+    """Create the simulator bucket before Iceberg or S3-backed writers run."""
+
+    settings = get_s3_config()
+    try:
+        if ensure_bucket(bucket=settings.bucket):
+            logger.info("rustfs          ✓ bucket %s present", settings.bucket)
+            return True
+        else:
+            logger.warning("rustfs: bucket %s could not be verified", settings.bucket)
+            return False
+    except Exception as exc:  # pragma: no cover - depends on the local Docker daemon
+        logger.warning("rustfs: could not ensure bucket %s (%s)", settings.bucket, exc)
+        return False
 
 
 def main() -> int:
@@ -136,9 +155,12 @@ def main() -> int:
 
     services = args.services or list(_SERVICE_PORTS.keys())
     ok = _wait_for_ports(services, args.timeout)
+    bootstrap_ok = True
+    if ok and any(service in services for service in ("rustfs", "iceberg-rest", "trino")):
+        bootstrap_ok = _ensure_rustfs_bucket() and bootstrap_ok
     if "mssql" in services:
-        _ensure_mssql_database()
-    return 0 if ok else 2
+        bootstrap_ok = _ensure_mssql_database() and bootstrap_ok
+    return 0 if ok and bootstrap_ok else 2
 
 
 if __name__ == "__main__":

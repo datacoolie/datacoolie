@@ -21,6 +21,7 @@ from tests.support.data_types import (
     observe_parquet_dataset,
 )
 from tests.support.datatype_config import require_docker_services
+from tests.support.s3_config import host_s3_properties
 
 
 pytestmark = [
@@ -85,13 +86,7 @@ def _iceberg_catalog():
         "datacoolie-datatype-qualification",
         type="rest",
         uri="http://localhost:8181",
-        **{
-            "s3.endpoint": "http://localhost:9000",
-            "s3.access-key-id": "minioadmin",
-            "s3.secret-access-key": "minioadmin",
-            "s3.path-style-access": "true",
-            "s3.region": "us-east-1",
-        },
+        **host_s3_properties(),
     )
 
 
@@ -179,7 +174,7 @@ def test_shared_metadata_contract_matches_between_polars_and_spark() -> None:
     pytest never starts or mutates those services.
     """
 
-    require_docker_services(("spark", "minio", "iceberg-rest"))
+    require_docker_services(("spark", "rustfs", "iceberg-rest"))
     run_token = uuid4().hex[:12]
     run_root = (
         PRODUCT_ROOT

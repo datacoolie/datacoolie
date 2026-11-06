@@ -455,7 +455,7 @@ class TestBoto3Client:
         with patch("boto3.Session") as mock_session_cls:
             mock_session = MagicMock()
             mock_session_cls.return_value = mock_session
-            p = AWSPlatform(endpoint_url="http://minio:9000")
+            p = AWSPlatform(endpoint_url="http://rustfs:9000")
             p.boto3_client("secretsmanager")
             call_kwargs = mock_session.client.call_args.kwargs
             assert "endpoint_url" not in call_kwargs

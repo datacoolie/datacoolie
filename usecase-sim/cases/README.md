@@ -34,7 +34,7 @@ Each authored `(fixture, flow)` has one primary owner; multiple recipes can refe
 it as support. Each scenario has one owning case. `dedicated_scenarios` is the
 explicit group execution route; broad bundles remain workflows.
 
-Local/Docker/AWS-MinIO definitions live in `metadata/file/<group>.json`; each real-cloud
+Local/Docker/AWS-RustFS definitions live in `metadata/file/<group>.json`; each real-cloud
 platform has one ordinary smoke JSON in `platforms/<platform>/`, owned by a
 `workflows` case. Cloud smoke checks representative platform execution separately
 from the full local feature matrix. Local workflow manifests reference the local

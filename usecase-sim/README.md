@@ -5,7 +5,7 @@ Exercises the local `{polars, spark}` × `{file, database, api}` matrix,
 Polars qualified SQL over Delta/Iceberg, selected AWS-platform file scenarios,
 and lakehouse maintenance
 (compact / cleanup). A companion `docker-compose` stack provides realistic
-backends (Postgres/MySQL/MSSQL/Oracle, MinIO, Iceberg REST, Trino, a mock REST
+backends (Postgres/MySQL/MSSQL/Oracle, RustFS, Iceberg REST, Trino, a mock REST
 API, and a metadata REST API).
 
 > Full-start commands use plain `python` and work in PowerShell and Bash with
@@ -63,7 +63,7 @@ usecase-sim/
 ├── runner/        # ETL runners (run.py, maintenance.py) + dispatcher (run_scenario.py)
 ├── scenarios/     # scenarios.json (multi entries) + SCENARIOS.md (field reference)
 ├── metadata/
-│                  # Local, Docker and AWS-MinIO simulation metadata
+│                  # Local, Docker and AWS-RustFS simulation metadata
 │   ├── file/      # <group>.json, connections.json and schema_hints.json
 │   ├── database/  # DDL, canonical SQLite metadata DB and verification
 │   └── api/       # Standalone dev metadata server (reads JSON)
@@ -150,19 +150,19 @@ python usecase-sim/scripts/bootstrap/setup_platform.py --down --volumes
 Once the full path works, you can trim by looking at the **selected dataflows**,
 not only the scenario priority. Most file/database/API scenarios use
 `stage: ""`, so they execute the broad `local_use_cases` metadata set and can
-touch database sources, the mock API, MinIO, and Iceberg in one run. Starting
+touch database sources, the mock API, RustFS, and Iceberg in one run. Starting
 the full stack is the reliable default.
 
 Narrow-stage replay scenarios and connection-filtered maintenance scenarios
 need only the backends their selected dataflows touch. Iceberg maintenance
-needs `minio` + `iceberg-rest`; API metadata needs `postgres` +
+needs `rustfs` + `iceberg-rest`; API metadata needs `postgres` +
 `metadata-api`. Spark scenarios can run on a host JVM, but on Windows the
 dispatcher uses the running `spark` container when available.
 
 `run.py` builds an Iceberg REST catalog for Polars only when the selected stage
 name contains `iceberg` or the empty stage selects all dataflows. Focused
 non-Iceberg stages do not require `iceberg-rest`; Iceberg stages still require
-`iceberg-rest` and `minio` with the default local catalog. Spark follows the
+`iceberg-rest` and `rustfs` with the default local catalog. Spark follows the
 same stage gate for its Iceberg catalog configuration, extension, and JARs.
 
 > `setup_metadata.py` with no args defaults to `file,db:sqlite,db:postgresql`
@@ -198,9 +198,31 @@ python usecase-sim/runner/run_scenario.py --all
 python usecase-sim/runner/run_scenario.py --all --execution-mode sequential
 ```
 
-The MinIO target reads the ordered selection from `scenarios/workflows/aws_use_cases.json` and publishes its plain JSON to
+The RustFS target reads the ordered selection from `scenarios/workflows/aws_use_cases.json` and publishes its plain JSON to
 `s3://datacoolie-test/metadata/aws_use_cases.json`, which is the metadata URI
 used by the AWS-platform scenarios.
+
+### Spark execution modes
+
+Spark is available in both Docker and host-local modes; they are not the same
+qualification boundary:
+
+- The recommended and reproducible Windows path is the `datacoolie-spark`
+  (Spark 3.5) or `datacoolie-spark4` (Spark 4.1) container. The Spark process
+  runs in `local[*]`/`local[1]` mode inside Linux Docker; this is a single-node
+  container runtime, not a remote Spark cluster.
+- `run_scenario.py` checks the selected Spark container first. When it is
+  running, Spark scenarios are launched with `docker exec`; when it is absent,
+  the dispatcher deliberately falls back to host PySpark.
+- Direct calls to `runner/run.py` and `runner/run_perf_benchmark.py` construct
+  `SparkSession` in the current Python process, so running them from the host
+  `.venv` is local Spark. They require Java 17 and are subject to Windows
+  native-driver/Application Control limitations.
+
+Therefore a passing host-local Spark run must not be reported as equivalent to
+the container qualification gate. Keep the selected Spark container running
+when the scenario receipt must prove Docker execution; the receipt records
+`execution_mode` and the container name.
 
 Artifact-backed scenarios are run with the same dispatcher as every other
 framework scenario. The dispatcher receives explicit metadata, artifact, SQL,
@@ -211,11 +233,11 @@ and runtime roots. CLI lifecycle tests live under `tests/unit/cli` and
 
 The normal scenario suite is representative and does not claim a complete
 source × engine × format matrix. For the bounded persisted-format cell, start
-the Spark, MinIO and Iceberg REST services, then run the opt-in integration
+the Spark, RustFS and Iceberg REST services, then run the opt-in integration
 test from the product root:
 
 ```powershell
-python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark
+python usecase-sim/scripts/bootstrap/setup_platform.py --services rustfs iceberg-rest spark
 ..\.venv\Scripts\python.exe -m pytest --datatype-qualification `
   -m datatype_qualification tests/integration/data_types/test_spark_container_cross_engine.py
 
@@ -224,21 +246,53 @@ python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-
   -m datatype_qualification tests/integration/data_types/test_usecase_sim_cross_engine.py
 ```
 
+For the live MySQL/MSSQL/Oracle source matrix, use the Linux Spark container so
+native database drivers are not subject to Windows DLL/Application Control
+policies. The preparation command also creates the MSSQL `datacoolie` database
+when it is missing:
+
+```powershell
+python usecase-sim/scripts/bootstrap/setup_platform.py `
+  --services mysql mssql oracle rustfs iceberg-rest spark
+docker exec `
+  -e DATACOOLIE_QUALIFICATION_CONTAINER=1 `
+  -e DATACOOLIE_QUALIFICATION_ICEBERG_URI=http://iceberg-rest:8181 `
+  -w /datacoolie datacoolie-spark `
+  python3 -m pytest -o addopts='' `
+  tests/integration/data_types/test_database_matrix_cross_engine.py `
+  --datatype-qualification -m "datatype_qualification and spark" `
+  -k "mysql or mssql or oracle" -q
+```
+
+The matrix covers each selected database through Parquet, Delta and Iceberg,
+with both Polars and Spark readers/writers compared against the vendor
+contract. The database matrix uses run-owned local output roots for Parquet and
+Delta, while the Iceberg cells exercise the RustFS-backed REST catalog. The
+Spark/Polars container cross-engine gate additionally writes and reads
+Parquet/Delta through RustFS S3 paths in both directions, so S3-backed format
+parity is covered separately from the database matrix. The separate S3 object
+contract and persisted Iceberg gates cover RustFS object semantics. Do not start
+only with `docker compose up` when this gate is needed:
+the MSSQL image does not auto-create its application database, while
+`setup_platform.py` performs that idempotent bootstrap.
+
 The test-owned container worker reports its resolved coordinates and structured
 observations (Spark 3.5.9, Delta 3.3.3, Iceberg 1.10.1, `deltalake` 1.6.3,
-PyIceberg 0.12.0). Host assertions compare both Spark↔Polars directions and
-the cleanup receipt. The full matrix observer reads Parquet through PyArrow,
-Delta through `deltalake.DeltaTable`, and Iceberg through the REST catalog;
-reading raw Parquet files under a Delta directory is not considered Delta
-qualification. This is evidence for that coordinate, not a blanket Spark 4.x
-or boundary-value compatibility claim.
+PyIceberg 0.12.0); the Spark 4.1 worker runs as a separate coordinate. Host
+assertions compare both Spark↔Polars directions and the cleanup receipt. The
+full matrix observer reads Parquet through PyArrow, Delta through
+`deltalake.DeltaTable`, and Iceberg through the REST catalog; the worker's
+S3-backed Parquet/Delta checks use native readers and remove their owned RustFS
+prefix. Reading raw Parquet files under a Delta directory is not considered
+Delta qualification. This is evidence for the recorded coordinates, not a
+blanket claim for other Spark/Hadoop combinations or boundary values.
 
 Spark 4.1 is a separate opt-in coordinate. Build and start the isolated
 service beside the default Spark 3.5 service, then run its dedicated gate:
 
 ```powershell
 docker compose -f usecase-sim/docker/docker-compose.yml build spark4
-python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark4
+python usecase-sim/scripts/bootstrap/setup_platform.py --services rustfs iceberg-rest spark4
 ..\.venv\Scripts\python.exe -m pytest `
   tests/integration/data_types/test_spark4_container_cross_engine.py `
   --datatype-qualification --spark4-qualification `
@@ -380,29 +434,29 @@ such as value-rule ordering.
 | `local_polars_api` | polars | api | metadata-api |
 | `local_spark_api` | spark | api | metadata-api |
 | `local_polars_delta_maintenance` | polars | maintenance | — |
-| `local_polars_iceberg_maintenance` | polars | maintenance | minio + iceberg-rest |
+| `local_polars_iceberg_maintenance` | polars | maintenance | rustfs + iceberg-rest |
 | `local_spark_delta_maintenance` | spark | maintenance | — |
-| `local_spark_iceberg_maintenance` | spark | maintenance | minio + iceberg-rest |
+| `local_spark_iceberg_maintenance` | spark | maintenance | rustfs + iceberg-rest |
 | `local_{polars,spark}_api_recovery_fail` | both | mock-api next_link | expected pagination cap failure; no target/state commit |
 | `local_{polars,spark}_api_recovery` | both | mock-api next_link | recovery after failed pagination; saves 30-row observed watermark |
 | `local_{polars,spark}_api_continuation` | both | mock-api next_link | second run selects one late row from persisted state |
-| `local_polars_qualified_sql_iceberg` | polars | focused file metadata | minio + iceberg-rest |
-| `error_messages.local_polars_qualified_sql_iceberg_ambiguity` | polars | focused file metadata | minio + iceberg-rest |
+| `local_polars_qualified_sql_iceberg` | polars | focused file metadata | rustfs + iceberg-rest |
+| `error_messages.local_polars_qualified_sql_iceberg_ambiguity` | polars | focused file metadata | rustfs + iceberg-rest |
 
-### P2 — AWS platform (MinIO + Iceberg REST)
+### P2 — AWS platform (RustFS + Iceberg REST)
 
 | Key | Engine | Source | Requires |
 |---|---|---|---|
-| `aws_polars_file` | polars | file | minio + iceberg-rest |
-| `aws_spark_file` | spark | file | minio + iceberg-rest |
-| `aws_polars_delta_maintenance` | polars | maintenance | minio |
-| `aws_polars_iceberg_maintenance` | polars | maintenance | minio + iceberg-rest |
-| `aws_spark_delta_maintenance` | spark | maintenance | minio |
-| `aws_spark_iceberg_maintenance` | spark | maintenance | minio + iceberg-rest |
-| `aws_polars_replay` | polars | file replay | minio |
-| `aws_spark_replay` | spark | file replay | minio + datacoolie-spark |
-| `aws_polars_iceberg_replay` | polars | Iceberg replay/replacement | minio + iceberg-rest |
-| `aws_spark_iceberg_replay` | spark | Iceberg replay/replacement | minio + iceberg-rest + datacoolie-spark |
+| `aws_polars_file` | polars | file | rustfs + iceberg-rest |
+| `aws_spark_file` | spark | file | rustfs + iceberg-rest |
+| `aws_polars_delta_maintenance` | polars | maintenance | rustfs |
+| `aws_polars_iceberg_maintenance` | polars | maintenance | rustfs + iceberg-rest |
+| `aws_spark_delta_maintenance` | spark | maintenance | rustfs |
+| `aws_spark_iceberg_maintenance` | spark | maintenance | rustfs + iceberg-rest |
+| `aws_polars_replay` | polars | file replay | rustfs |
+| `aws_spark_replay` | spark | file replay | rustfs + datacoolie-spark |
+| `aws_polars_iceberg_replay` | polars | Iceberg replay/replacement | rustfs + iceberg-rest |
+| `aws_spark_iceberg_replay` | spark | Iceberg replay/replacement | rustfs + iceberg-rest + datacoolie-spark |
 
 > P0 is a priority label, not an isolation guarantee. Scenarios with
 > `stage: ""` can touch the broad metadata set. `local_polars_file` and
@@ -586,7 +640,7 @@ remain in `scripts/_common.py`; canonical roots live in `runner/runtime_paths.py
 
 ```powershell
 python usecase-sim/scripts/bootstrap/setup_platform.py                         # up all, wait for health and ports
-python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres minio
+python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres rustfs
 python usecase-sim/scripts/bootstrap/setup_platform.py --down --volumes        # tear down + wipe data
 ```
 
@@ -600,7 +654,9 @@ python usecase-sim/scripts/bootstrap/setup_platform.py --down --volumes        #
 
 Requires Docker Compose with `up --wait --wait-timeout` support. Services with
 healthchecks must become healthy before port polling begins; an open Oracle
-listener alone does not mean its PDB and application user are ready.
+listener alone does not mean its PDB and application user are ready. When
+RustFS is selected, the command also idempotently creates the configured S3
+bucket before Iceberg/S3-backed writers run.
 
 ### `setup_metadata.py` — fan-out use-cases to targets
 
@@ -631,15 +687,15 @@ Targets: `file`, `db:sqlite`, `db:postgresql`, `db:mysql`, `db:mssql`,
 
 ### `generate_data.py` — write sample inputs
 
-30-row sample dataset into every requested target. Replaces the old
-`generate_sample_data.py` + `bootstrap_{postgres,mysql,mssql,oracle,minio}.py`.
+30-row sample dataset into every requested target. Replaces the former
+sample-data, object-store and per-database bootstrap scripts.
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--targets LIST` | all reachable | `local`, `minio`, `pg`, `mysql`, `mssql`, `oracle` |
+| `--targets LIST` | all reachable | `local`, `rustfs`, `pg`, `mysql`, `mssql`, `oracle` |
 
 ```powershell
-python usecase-sim/scripts/bootstrap/generate_data.py --targets local,minio
+python usecase-sim/scripts/bootstrap/generate_data.py --targets local,rustfs
 python usecase-sim/scripts/bootstrap/generate_data.py --targets pg,mysql
 ```
 
@@ -648,19 +704,19 @@ python usecase-sim/scripts/bootstrap/generate_data.py --targets pg,mysql
 | Flag | Default | Purpose |
 |---|---|---|
 | `--dry-run` | off | Report without deleting |
-| `--skip-local` / `--skip-minio` / `--skip-db` | off | Skip individual stores |
+| `--skip-local` / `--skip-rustfs` / `--skip-db` | off | Skip individual stores |
 | `--dialects D1 D2 …` | all 5 | DB dialects to target |
 | `--db-url DIALECT=URL` | `[]` | Override SQLAlchemy URL |
 
 ### `reset_data.py` — full reset
 
-Wipes `.runtime/data/output/`, drops MinIO output + iceberg-warehouse prefixes, drops
+Wipes `.runtime/data/output/`, drops RustFS output + iceberg-warehouse prefixes, drops
 the Iceberg `default` namespace, and calls `reset_watermarks.py`.
 
 | Flag | Default | Purpose |
 |---|---|---|
 | `--dry-run` | off | Report without deleting |
-| `--local-only` | off | Skip MinIO + Iceberg + DB cleanup |
+| `--local-only` | off | Skip RustFS + Iceberg + DB cleanup |
 | `--dialects D1 D2 …` | all 5 | DB dialects for watermark cleanup |
 
 ### `generate_perf_data.py` — perf benchmark inputs
@@ -669,13 +725,13 @@ the Iceberg `default` namespace, and calls `reset_watermarks.py`.
 |---|---|---|
 | `--sizes LIST` | all 8 | `10k,50k,100k,500k,1m,5m,10m,50m` |
 | `--formats LIST` | all | `jsonl,parquet,delta,iceberg` |
-| `--targets LIST` | all | `local,minio,iceberg` |
+| `--targets LIST` | all | `local,rustfs,iceberg` |
 | `--iceberg-uri URL` | `http://localhost:8181` | Iceberg REST URI |
 
 Notes:
 
 - JSONL inputs are only generated through `1m` rows. The script skips JSONL for `5m`, `10m`, and `50m`.
-- `minio` is skipped automatically when `localhost:9000` is unavailable.
+- `rustfs` is skipped automatically when `localhost:9000` is unavailable.
 - `iceberg` requires the local REST catalog and is skipped when the catalog is unavailable.
 
 ### `reset_perf_data.py` — reset perf artifacts
@@ -691,7 +747,8 @@ Notes:
 
 `usecase-sim/docker/docker-compose.yml` defines a 12-service stack (the
 Spark 4.1 service is opt-in). All
-credentials are hardcoded — intended for local dev only.
+credentials default to local fixture values and may be overridden through
+`DATACOOLIE_SIM_S3_*`; this stack is intended for local development only.
 
 | Service | Port(s) | Credentials | Purpose |
 |---|---|---|---|
@@ -699,7 +756,7 @@ credentials are hardcoded — intended for local dev only.
 | `mysql` | 3306 | `datacoolie/datacoolie` | Metadata DB variant |
 | `mssql` | 1433 | `sa / Datacoolie@1` | Metadata DB variant |
 | `oracle` | 1521 | `datacoolie/datacoolie`, service `FREEPDB1` | Metadata DB variant |
-| `minio` | 9000 / 9001 | `minioadmin/minioadmin` | S3-compatible object store |
+| `rustfs` | 9000 / 9001 | `minioadmin/minioadmin` | S3-compatible object store |
 | `iceberg-rest` | 8181 | — | Tabular Iceberg REST catalog |
 | `trino` | 8080 | — | SQL engine over Iceberg |
 | `mock-api` | 8082 | env-configured | Simulates REST API sources |
@@ -710,7 +767,7 @@ credentials are hardcoded — intended for local dev only.
 
 ### UI endpoints
 
-- MinIO console: <http://localhost:9001>
+- RustFS console: <http://localhost:9001>
 - Trino UI: <http://localhost:8080>
 - SQLPad: <http://localhost:3000>
 - Mock REST API: <http://localhost:8082>
@@ -723,7 +780,7 @@ credentials are hardcoded — intended for local dev only.
 python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres
 
 # P2 AWS iceberg scenario
-python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest
+python usecase-sim/scripts/bootstrap/setup_platform.py --services rustfs iceberg-rest
 
 # P1 metadata-api scenario (postgres + api server)
 python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres metadata-api
@@ -740,7 +797,7 @@ output data are shared through a volume mount — no path changes needed.
 
 ```powershell
 # From the datacoolie/ directory — build image + start dependencies + spark
-python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark
+python usecase-sim/scripts/bootstrap/setup_platform.py --services rustfs iceberg-rest spark
 ```
 
 On first start the container runs `pip install -e /datacoolie --no-deps`
@@ -791,7 +848,7 @@ outside `usecase-sim/.runtime/data`.
 
 | What works | Notes |
 |---|---|
-| P0 file scenarios (Delta, Parquet, CSV, Iceberg) | ✅ Full support — minio + iceberg-rest reached by container name |
+| P0 file scenarios (Delta, Parquet, CSV, Iceberg) | ✅ Full support — rustfs + iceberg-rest reached by container name |
 | P0 replay scenarios | ✅ |
 | P1 database scenarios | ⚠ `localhost` in metadata JSON resolves to the container, not the host. Use `docker exec ... --metadata-source database` only after verifying connectivity. |
 | P1 API scenarios | ⚠ Same localhost caveat; pass `--skip-api-sources` to avoid. |
@@ -887,7 +944,7 @@ or ambiguity. Run the local cases with:
 # Delta only; no Docker service required
 python usecase-sim/runner/run_scenario.py --scenario local_polars_qualified_sql_delta
 
-# Iceberg REST + MinIO are started from the scenario's explicit service list
+# Iceberg REST + RustFS are started from the scenario's explicit service list
 python usecase-sim/runner/run_scenario.py --scenario local_polars_qualified_sql_iceberg
 ```
 
@@ -977,7 +1034,7 @@ Notes:
 | `ERROR DerbyLockFile` on second Spark run | `run_scenario.py` auto-wipes `.runtime/state/spark/spark35/warehouse/` + `.runtime/state/spark/spark35/metastore_db/`; if running `run.py` directly, delete them between runs |
 | Local Spark raises `ChecksumException` for a shared Delta file | Run through `runner/run.py` or `run_scenario.py`; local runners apply the scoped Hadoop checksum policy after creating Spark. Direct framework callers keep checksum verification enabled. |
 | Broad Spark scenarios slow down after many reruns | Use `run_scenario.py`; each affected scenario resets its stateless generated Delta targets while preserving watermark-dependent state. |
-| `BucketAlreadyOwnedByYou` on MinIO | Benign; `_common.ensure_bucket` is idempotent |
+| `BucketAlreadyOwnedByYou` on RustFS | Benign; `_common.ensure_bucket` is idempotent |
 | Database reader import error | Install `pip install "datacoolie[source-db-native-polars]"` for the default MySQL/MSSQL path, or `datacoolie[source-db-oracle-polars]` for Oracle. Use `database_read_engine: "connectorx"` only as an explicit fallback. |
 | Oracle setup reports a missing `DC_FRAMEWORK_*` table or metadata ID | Rerun `setup_metadata.py --targets db:oracle`; use `--truncate` only when you intentionally want to reset `local-workspace`. The setup log now includes the full failing traceback. |
 | MSSQL auth fails with `Datacoolie@1` | Use URL-encoded form `Datacoolie%401` in SQLAlchemy URLs |

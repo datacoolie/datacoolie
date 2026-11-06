@@ -34,6 +34,7 @@ if str(PRODUCT_ROOT / "src") not in sys.path:
 
 from runner.runtime_logs import job_sessions, records  # noqa: E402
 from runner.runtime_paths import DATA_DIR, LOG_DIR  # noqa: E402
+from runner.s3_config import get_s3_config  # noqa: E402
 from _stateful_support import (  # noqa: E402
     CasePaths,
     DriverEvidence,
@@ -51,7 +52,7 @@ MODES = (
     "polars_unsupported_orphan_files",
 )
 AWS_BUCKET = "datacoolie-test"
-AWS_ENDPOINTS = frozenset(("http://localhost:9000", "http://minio:9000"))
+AWS_ENDPOINTS = frozenset(("http://localhost:9000", "http://rustfs:9000"))
 
 
 def _resolve(value: str | Path) -> Path:
@@ -77,10 +78,12 @@ def _catalog_uri(value: str | None, *, engine: str) -> str:
 def _s3_endpoint(value: str | None) -> str:
     if value:
         return value
-    configured = os.getenv("DATACOOLIE_QUALIFICATION_MINIO_ENDPOINT")
+    configured = os.getenv("DATACOOLIE_SIM_S3_ENDPOINT")
     if configured:
         return configured
-    return "http://minio:9000" if Path("/datacoolie").exists() else "http://localhost:9000"
+    if Path("/datacoolie").exists():
+        return "http://rustfs:9000"
+    return get_s3_config().endpoint
 
 
 def _aws_client(endpoint: str):
@@ -89,9 +92,9 @@ def _aws_client(endpoint: str):
     return boto3.client(
         "s3",
         endpoint_url=endpoint,
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        region_name=os.getenv("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", get_s3_config().access_key),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", get_s3_config().secret_key),
+        region_name=os.getenv("AWS_REGION", get_s3_config().region),
     )
 
 
@@ -137,9 +140,9 @@ def _aws_log_root(
 def _storage_options(endpoint: str) -> dict[str, str]:
     return {
         "aws_endpoint_url": endpoint,
-        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
-        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        "aws_region": os.getenv("AWS_REGION", "us-east-1"),
+        "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID", get_s3_config().access_key),
+        "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY", get_s3_config().secret_key),
+        "aws_region": os.getenv("AWS_REGION", get_s3_config().region),
         "aws_allow_http": "true",
     }
 
@@ -225,9 +228,9 @@ def _rest_catalog(uri: str, endpoint: str):
         uri=uri,
         **{
             "s3.endpoint": endpoint,
-            "s3.access-key-id": os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
-            "s3.secret-access-key": os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-            "s3.region": os.getenv("AWS_REGION", "us-east-1"),
+            "s3.access-key-id": os.getenv("AWS_ACCESS_KEY_ID", get_s3_config().access_key),
+            "s3.secret-access-key": os.getenv("AWS_SECRET_ACCESS_KEY", get_s3_config().secret_key),
+            "s3.region": os.getenv("AWS_REGION", get_s3_config().region),
             "s3.path-style-access": "true",
         },
     )
@@ -1240,7 +1243,7 @@ def validate(args: argparse.Namespace) -> int:
             raise ValueError(f"AWS qualification requires bucket {AWS_BUCKET!r}")
         if endpoint not in AWS_ENDPOINTS:
             raise ValueError(
-                "AWS qualification accepts only the checked-in MinIO endpoints"
+                "AWS qualification accepts only the checked-in RustFS endpoints"
             )
     if args.platform == "aws" and not args.observe_only:
         raise ValueError("AWS qualification must observe the normal maintenance runner")

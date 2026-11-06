@@ -352,13 +352,13 @@
       "path": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
       "group": "maintenance",
       "role": "setup",
-      "reason": "Owns UUID-suffixed REST target preparation, read-only Docker attestation receipt and case-scoped AWS-MinIO metadata upload."
+      "reason": "Owns UUID-suffixed REST target preparation, read-only Docker attestation receipt and case-scoped AWS-RustFS metadata upload."
     },
     {
       "path": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
       "group": "maintenance",
       "role": "validator",
-      "reason": "Owns focused local/AWS-MinIO native REST action, no-work and unsupported preflight oracles, including scoped AWS log download and continuity checks."
+      "reason": "Owns focused local/AWS-RustFS native REST action, no-work and unsupported preflight oracles, including scoped AWS log download and continuity checks."
     },
     {
       "path": "usecase-sim/scripts/features/_stateful_support.py",

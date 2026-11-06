@@ -1,4 +1,4 @@
-"""Prepare the MinIO-backed AWS replay qualification profile."""
+"""Prepare the RustFS-backed AWS-compatible replay qualification profile."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.owned_process import run_owned
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
 from runner.metadata_sources import recipe_document
+from runner.s3_config import get_s3_config
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
@@ -19,17 +20,18 @@ import boto3
 
 
 ROOT = SIM_ROOT
-BUCKET = "datacoolie-test"
-ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
+S3_CONFIG = get_s3_config()
+BUCKET = S3_CONFIG.bucket
+ENDPOINT = S3_CONFIG.endpoint
 
 
 def _client():
     return boto3.client(
         "s3",
         endpoint_url=ENDPOINT,
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", S3_CONFIG.access_key),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", S3_CONFIG.secret_key),
+        region_name=os.environ.get("AWS_REGION", S3_CONFIG.region),
     )
 
 
@@ -49,11 +51,11 @@ def main() -> int:
     parser.add_argument("--engine", choices=("polars", "spark"), required=True)
     args = parser.parse_args()
 
-    # Re-seed the standard AWS/MinIO input fixture through the supported setup
+    # Re-seed the standard AWS/RustFS input fixture through the supported setup
     # path, then publish the exact flat-recipe projection beside it.
     generate = ROOT / "scripts" / "bootstrap" / "generate_data.py"
     completed = run_owned(
-        [sys.executable, str(generate), "--targets", "minio"],
+        [sys.executable, str(generate), "--targets", "rustfs"],
         cwd=str(ROOT.parent),
         timeout=150,
     )
@@ -74,7 +76,7 @@ def main() -> int:
     removed_output = _delete_prefix(client, f"output/delta/{output_table}/")
     removed_state = _delete_prefix(client, f"state/replay_validation/aws_{args.engine}/")
     print(
-        f"prepared AWS-compatible MinIO replay: endpoint={ENDPOINT} "
+        f"prepared AWS-compatible RustFS replay: endpoint={ENDPOINT} "
         f"metadata=s3://{BUCKET}/{metadata_key} "
         f"output=s3://{BUCKET}/output/delta/{output_table} "
         f"removed_output={removed_output} removed_state={removed_state}"

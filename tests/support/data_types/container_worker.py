@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import traceback
 import warnings
 from datetime import datetime, timezone
@@ -16,6 +17,13 @@ from decimal import Decimal
 from importlib import metadata
 from pathlib import Path
 from uuid import uuid4
+
+import boto3
+
+SIM_ROOT = Path(__file__).resolve().parents[3] / "usecase-sim"
+if str(SIM_ROOT) not in sys.path:
+    sys.path.insert(0, str(SIM_ROOT))
+from runner.s3_config import get_s3_config  # noqa: E402
 
 import polars as pl
 import pyspark
@@ -31,6 +39,7 @@ EXPECTED_INSTANT = datetime(
     2024, 1, 15, 3, 30, 45, 123456, tzinfo=timezone.utc
 )
 EXPECTED_WALL_CLOCK = datetime(2024, 1, 15, 10, 30, 45, 123456)
+S3_CONFIG = get_s3_config()
 
 
 def _frame() -> pl.DataFrame:
@@ -98,6 +107,7 @@ def _spark_session() -> SparkSession:
     scala_suffix = "2.13" if spark_major >= 4 else "2.12"
     iceberg_version = "1.11.0" if spark_major_minor == "4.1" else "1.10.1"
     delta_version = metadata.version("delta-spark")
+    hadoop_aws_version = "3.4.2" if spark_major >= 4 else "3.3.4"
     builder = configure_spark_with_delta_pip(
         SparkSession.builder.master("local[1]")
         .appName("datacoolie-spark-cross-engine-observation")
@@ -119,17 +129,21 @@ def _spark_session() -> SparkSession:
             "spark.sql.catalog.local_catalog.io-impl",
             "org.apache.iceberg.aws.s3.S3FileIO",
         )
-        .config("spark.sql.catalog.local_catalog.s3.endpoint", "http://minio:9000")
-        .config("spark.sql.catalog.local_catalog.s3.access-key-id", "minioadmin")
-        .config("spark.sql.catalog.local_catalog.s3.secret-access-key", "minioadmin")
+        .config("spark.sql.catalog.local_catalog.s3.endpoint", S3_CONFIG.endpoint)
+        .config("spark.sql.catalog.local_catalog.s3.access-key-id", S3_CONFIG.access_key)
+        .config("spark.sql.catalog.local_catalog.s3.secret-access-key", S3_CONFIG.secret_key)
         .config("spark.sql.catalog.local_catalog.s3.path-style-access", "true")
-        .config("spark.sql.catalog.local_catalog.s3.region", "us-east-1")
+        .config("spark.sql.catalog.local_catalog.s3.region", S3_CONFIG.region)
     )
+    for key, value in S3_CONFIG.spark_hadoop_config().items():
+        builder = builder.config(key, value)
     return builder.config(
         "spark.jars.packages",
         f"io.delta:delta-spark_{scala_suffix}:{delta_version},"
         f"org.apache.iceberg:iceberg-spark-runtime-{spark_major_minor}_{scala_suffix}:{iceberg_version},"
-        "software.amazon.awssdk:bundle:2.29.51",
+        "software.amazon.awssdk:bundle:2.29.51,"
+        f"org.apache.hadoop:hadoop-aws:{hadoop_aws_version},"
+        "com.amazonaws:aws-java-sdk-bundle:1.12.780",
     ).getOrCreate()
 
 
@@ -139,11 +153,7 @@ def _iceberg_catalog():
         type="rest",
         uri="http://iceberg-rest:8181",
         **{
-            "s3.endpoint": "http://minio:9000",
-            "s3.access-key-id": "minioadmin",
-            "s3.secret-access-key": "minioadmin",
-            "s3.path-style-access": "true",
-            "s3.region": "us-east-1",
+            **S3_CONFIG.iceberg_properties(),
         },
     )
 
@@ -157,19 +167,16 @@ def run(run_root: Path) -> dict[str, object]:
         f"{namespace}.spark_values",
         f"{namespace}.polars_values",
     )
+    s3_prefix = f"datatype-observation/{namespace}"
+    s3_root = f"s3://{S3_CONFIG.bucket}/{s3_prefix}"
+    s3a_root = f"s3a://{S3_CONFIG.bucket}/{s3_prefix}"
     spark: SparkSession | None = None
     try:
         catalog.create_namespace_if_not_exists(namespace)
         spark = _spark_session()
         polars_engine = PolarsEngine(
             iceberg_catalog=catalog,
-            storage_options={
-                "aws_access_key_id": "minioadmin",
-                "aws_secret_access_key": "minioadmin",
-                "aws_endpoint_url": "http://minio:9000",
-                "aws_region": "us-east-1",
-                "aws_allow_http": "true",
-            },
+            storage_options=S3_CONFIG.storage_options(),
         )
         delta_spark_path = run_root / "delta-spark-write"
         delta_polars_path = run_root / "delta-polars-write"
@@ -188,6 +195,40 @@ def run(run_root: Path) -> dict[str, object]:
 
         _frame().write_delta(str(delta_polars_path), mode="overwrite")
         polars_to_spark = spark.read.format("delta").load(str(delta_polars_path))
+
+        # The local-format checks above preserve the historical bounded gate.
+        # These additional directions deliberately use RustFS object paths so
+        # Parquet and Delta are not mistaken for an Iceberg-only S3 check.
+        spark_parquet_path = f"{s3a_root}/parquet-spark"
+        polars_parquet_path = f"{s3_root}/parquet-polars/data.parquet"
+        spark_frame.write.mode("overwrite").parquet(spark_parquet_path)
+        spark_to_polars_parquet = pl.read_parquet(
+            f"{spark_parquet_path.replace('s3a://', 's3://')}/*.parquet",
+            storage_options=S3_CONFIG.storage_options(),
+        )
+        _frame().write_parquet(
+            polars_parquet_path,
+            storage_options=S3_CONFIG.storage_options(),
+        )
+        polars_to_spark_parquet = spark.read.parquet(
+            f"{s3a_root}/parquet-polars"
+        )
+
+        spark_delta_path = f"{s3a_root}/delta-spark"
+        polars_delta_path = f"{s3_root}/delta-polars"
+        spark_frame.write.format("delta").mode("overwrite").save(spark_delta_path)
+        spark_to_polars_delta = pl.from_arrow(
+            DeltaTable(
+                spark_delta_path.replace("s3a://", "s3://"),
+                storage_options=S3_CONFIG.storage_options(),
+            ).to_pyarrow_table()
+        )
+        _frame().write_delta(
+            polars_delta_path,
+            mode="overwrite",
+            storage_options=S3_CONFIG.storage_options(),
+        )
+        polars_to_spark_delta = spark.read.format("delta").load(polars_delta_path.replace("s3://", "s3a://"))
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -223,6 +264,10 @@ def run(run_root: Path) -> dict[str, object]:
                 "delta_polars_to_spark": _observe_spark(polars_to_spark),
                 "iceberg_spark_to_polars": _observe_polars(spark_to_iceberg_polars),
                 "iceberg_polars_to_spark": _observe_spark(polars_to_iceberg_spark),
+                "s3_parquet_spark_to_polars": _observe_polars(spark_to_polars_parquet),
+                "s3_parquet_polars_to_spark": _observe_spark(polars_to_spark_parquet),
+                "s3_delta_spark_to_polars": _observe_polars(spark_to_polars_delta),
+                "s3_delta_polars_to_spark": _observe_spark(polars_to_spark_delta),
             },
             "cleanup_errors": cleanup_errors,
         }
@@ -247,6 +292,33 @@ def run(run_root: Path) -> dict[str, object]:
                 catalog.drop_namespace(namespace)
             except Exception as exc:  # noqa: BLE001 - report cleanup status
                 cleanup_errors.append(f"drop_namespace {namespace}: {exc}")
+        try:
+            client = boto3.client(
+                "s3",
+                endpoint_url=S3_CONFIG.endpoint,
+                aws_access_key_id=S3_CONFIG.access_key,
+                aws_secret_access_key=S3_CONFIG.secret_key,
+                region_name=S3_CONFIG.region,
+            )
+            paginator = client.get_paginator("list_objects_v2")
+            for page in paginator.paginate(
+                Bucket=S3_CONFIG.bucket, Prefix=f"{s3_prefix}/"
+            ):
+                keys = [item["Key"] for item in page.get("Contents", [])]
+                if not keys:
+                    continue
+                response = client.delete_objects(
+                    Bucket=S3_CONFIG.bucket,
+                    Delete={
+                        "Objects": [{"Key": key} for key in keys],
+                        "Quiet": True,
+                    },
+                )
+                errors = response.get("Errors", [])
+                if errors:
+                    cleanup_errors.append(f"RustFS object cleanup: {errors}")
+        except Exception as exc:  # noqa: BLE001 - report cleanup status
+            cleanup_errors.append(f"RustFS object cleanup: {exc}")
 
 
 def main() -> None:

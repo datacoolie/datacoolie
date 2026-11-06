@@ -1,14 +1,12 @@
-"""Generate sample input data into local filesystem, MinIO, and RDBMS source_orders.
+"""Generate sample input data into local filesystem, RustFS, and RDBMS source_orders.
 
-Single entrypoint that replaces:
-    data/generate_sample_data.py
-    docker/bootstrap_minio.py
-    docker/bootstrap_{postgres,mysql,mssql,oracle}.py
+Single entrypoint that consolidates the former sample-data, object-store and
+per-database bootstrap scripts.
 
 Targets (comma-separated via --targets):
     local     : write CSV/JSON/JSONL/Parquet/Parquet_dated/Parquet_hive/Avro/Excel/SQLite
                 plus the focused transformer Parquet fixture under .runtime/data/input/**
-    minio     : upload .runtime/data/input/** → s3://datacoolie-test/input/**
+    rustfs    : upload .runtime/data/input/** → s3://datacoolie-test/input/**
                 and publish the AWS metadata fixture under metadata/
     pg        : create + seed source_orders in PostgreSQL
     mysql     : same for MySQL
@@ -17,7 +15,7 @@ Targets (comma-separated via --targets):
 
 Usage:
     python usecase-sim/scripts/bootstrap/generate_data.py                          # all reachable targets
-    python usecase-sim/scripts/bootstrap/generate_data.py --targets local,minio
+    python usecase-sim/scripts/bootstrap/generate_data.py --targets local,rustfs
     python usecase-sim/scripts/bootstrap/generate_data.py --targets pg
 """
 from __future__ import annotations
@@ -42,7 +40,6 @@ sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 from _common import (  # noqa: E402
     AWS_USE_CASES_JSON,
     INPUT_DIR,
-    MINIO_BUCKET,
     SAMPLE_COLUMNS,
     SAMPLE_ROWS,
     TRANSFORMER_COLUMNS,
@@ -51,15 +48,16 @@ from _common import (  # noqa: E402
     TRANSFORMER_ROWS,
     SOURCE_ORDERS_ROWS,
     ensure_bucket,
-    minio_client,
+    s3_client,
     port_open,
     setup_logging,
     upload_tree,
 )
+from runner.s3_config import get_s3_config  # noqa: E402
 
 logger = setup_logging("generate_data")
 
-ALL_TARGETS = ["local", "minio", "pg", "mysql", "mssql", "oracle"]
+ALL_TARGETS = ["local", "rustfs", "pg", "mysql", "mssql", "oracle"]
 
 
 # ===========================================================================
@@ -264,28 +262,29 @@ def generate_local() -> None:
 
 
 # ===========================================================================
-# MinIO upload
+# RustFS/S3 upload
 # ===========================================================================
 
-def generate_minio() -> None:
-    logger.info("--- target: minio ---")
+def generate_rustfs() -> None:
+    bucket = get_s3_config().bucket
+    logger.info("--- target: rustfs ---")
     if not port_open("localhost", 9000):
-        logger.warning("MinIO not reachable at localhost:9000 — skipping")
+        logger.warning("RustFS not reachable at localhost:9000 — skipping")
         return
-    if not ensure_bucket(bucket=MINIO_BUCKET):
+    if not ensure_bucket(bucket=bucket):
         return
-    upload_tree(INPUT_DIR, "input", bucket=MINIO_BUCKET)
+    upload_tree(INPUT_DIR, "input", bucket=bucket)
     if AWS_USE_CASES_JSON.is_file():
-        client = minio_client()
+        client = s3_client()
         if client is not None:
             key = f"metadata/{AWS_USE_CASES_JSON.name}"
             payload = json.dumps(load_metadata(AWS_USE_CASES_JSON, root=SIM_ROOT),
                                  ensure_ascii=False, indent=2).encode("utf-8")
-            client.put_object(Bucket=MINIO_BUCKET, Key=key, Body=payload,
+            client.put_object(Bucket=bucket, Key=key, Body=payload,
                               ContentType="application/json")
             logger.info(
                 "Uploaded AWS metadata: s3://%s/%s",
-                MINIO_BUCKET,
+                bucket,
                 key,
             )
 
@@ -478,8 +477,8 @@ def main() -> int:
 
     if "local" in requested:
         generate_local()
-    if "minio" in requested:
-        generate_minio()
+    if "rustfs" in requested:
+        generate_rustfs()
     for t in ("pg", "mysql", "mssql", "oracle"):
         if t in requested:
             generate_rdbms(t)

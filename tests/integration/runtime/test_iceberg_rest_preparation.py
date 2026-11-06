@@ -10,13 +10,14 @@ import pytest
 from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.engines.contracts.maintenance import MaintenanceTableAddress, RestMaintenanceDeployment
 from tests.support.datatype_config import require_docker_services
+from tests.support.s3_config import host_s3_properties
 
 pytestmark = [pytest.mark.integration, pytest.mark.runtime_qualification]
 
 
 @pytest.mark.spark
 def test_spark_rest_driver_uses_canonical_guard_and_truthful_native_results():
-    require_docker_services(("spark", "minio", "iceberg-rest"))
+    require_docker_services(("spark", "rustfs", "iceberg-rest"))
     manifest = os.getenv("DATACOOLIE_GUARD_MANIFEST")
     assert manifest, "Pass a container-visible explicitly built canonical guard manifest"
     result = subprocess.run(["docker", "exec", "-w", "/datacoolie", "-e",
@@ -44,7 +45,7 @@ def test_spark_rest_driver_uses_canonical_guard_and_truthful_native_results():
 
 
 def test_polars_prepared_rest_target_keeps_scope_identifier_and_uuid():
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     import pyarrow as pa
     from pyiceberg.catalog.rest import RestCatalog
     from pyiceberg.schema import Schema
@@ -52,9 +53,7 @@ def test_polars_prepared_rest_target_keeps_scope_identifier_and_uuid():
     from datacoolie.engines.polars_engine import PolarsEngine
     from datacoolie.engines._polars.iceberg.maintenance import validate_target
 
-    catalog = RestCatalog("catalog", uri="http://localhost:8181", **{
-        "s3.endpoint": "http://localhost:9000", "s3.access-key-id": "minioadmin",
-        "s3.secret-access-key": "minioadmin", "s3.region": "us-east-1"})
+    catalog = RestCatalog("catalog", uri="http://localhost:8181", **host_s3_properties())
     namespace = f"maintenance_prepare_{uuid4().hex}"
     catalog.create_namespace(namespace)
     schema = Schema(NestedField(1, "id", LongType(), required=False))
@@ -117,7 +116,7 @@ def test_polars_prepared_rest_target_keeps_scope_identifier_and_uuid():
 
 
 def test_polars_rest_expiration_runs_through_driver_and_persists_truthful_v6(tmp_path):
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     import json
     import pyarrow as pa
     from pyiceberg.catalog.rest import RestCatalog
@@ -131,9 +130,7 @@ def test_polars_rest_expiration_runs_through_driver_and_persists_truthful_v6(tmp
     from datacoolie.engines.polars_engine import PolarsEngine
     from datacoolie.platforms.local_platform import LocalPlatform
     from datacoolie.orchestration.driver import DataCoolieDriver
-    catalog = RestCatalog("catalog", uri="http://localhost:8181", **{
-        "s3.endpoint": "http://localhost:9000", "s3.access-key-id": "minioadmin",
-        "s3.secret-access-key": "minioadmin", "s3.region": "us-east-1"})
+    catalog = RestCatalog("catalog", uri="http://localhost:8181", **host_s3_properties())
     namespace = f"maintenance_driver_{uuid4().hex}"
     catalog.create_namespace(namespace)
     schema = Schema(NestedField(1, "id", LongType(), required=False))

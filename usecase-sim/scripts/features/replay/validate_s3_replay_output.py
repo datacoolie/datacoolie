@@ -1,4 +1,4 @@
-"""Validate a MinIO-backed replay output and saved watermark."""
+"""Validate a RustFS-backed replay output and saved watermark."""
 
 from __future__ import annotations
 
@@ -11,22 +11,24 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.runtime_paths import DATACOOLIE_ROOT
+from runner.s3_config import get_s3_config
 
 import boto3
 from deltalake import DeltaTable
 
 
-BUCKET = "datacoolie-test"
-ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
+S3_CONFIG = get_s3_config()
+BUCKET = S3_CONFIG.bucket
+ENDPOINT = S3_CONFIG.endpoint
 
 
 def _client():
     return boto3.client(
         "s3",
         endpoint_url=ENDPOINT,
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", S3_CONFIG.access_key),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", S3_CONFIG.secret_key),
+        region_name=os.environ.get("AWS_REGION", S3_CONFIG.region),
     )
 
 
@@ -39,10 +41,10 @@ def main() -> int:
     args = parser.parse_args()
 
     storage_options = {
-        "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
-        "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+        "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID", S3_CONFIG.access_key),
+        "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY", S3_CONFIG.secret_key),
         "AWS_ENDPOINT_URL": ENDPOINT,
-        "AWS_REGION": os.environ.get("AWS_REGION", "us-east-1"),
+        "AWS_REGION": os.environ.get("AWS_REGION", S3_CONFIG.region),
         "AWS_ALLOW_HTTP": "true",
     }
     output_uri = f"s3://{BUCKET}/output/delta/aws_replay_validation_{args.engine}"
@@ -70,7 +72,7 @@ def main() -> int:
     if not any(value.get("order_date") == "2024-01-17" for value in values):
         raise AssertionError(f"Saved order_date watermark not found below {state_prefix}")
     print(
-        f"validated MinIO replay: engine={args.engine} rows={table.num_rows} "
+        f"validated RustFS replay: engine={args.engine} rows={table.num_rows} "
         f"ids={sorted(ids)} state={state_prefix} watermark=2024-01-17"
     )
     return 0

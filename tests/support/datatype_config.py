@@ -8,7 +8,9 @@ explicitly enabled and a test asks for a preflight.
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import socket
 import subprocess
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -29,8 +31,20 @@ COMPOSE_FILE = USECASE_SIM_ROOT / "docker" / "docker-compose.yml"
 # a compose health check and retain the weaker running-state check.
 _DATABASE_SERVICES = frozenset({"postgres", "mysql", "mssql", "oracle"})
 _HTTP_PROBES = {
-    "minio": "http://localhost:9000/minio/health/live",
+    "rustfs": "http://localhost:9000/health/ready",
     "iceberg-rest": "http://localhost:8181/v1/config",
+    "trino": "http://localhost:8080/v1/info",
+}
+_CONTAINER_HTTP_PROBES = {
+    "rustfs": "http://rustfs:9000/health/ready",
+    "iceberg-rest": "http://iceberg-rest:8181/v1/config",
+    "trino": "http://trino:8080/v1/info",
+}
+_CONTAINER_DATABASE_PORTS = {
+    "postgres": ("postgres", 5432),
+    "mysql": ("mysql", 3306),
+    "mssql": ("mssql", 1433),
+    "oracle": ("oracle", 1521),
 }
 
 
@@ -106,8 +120,50 @@ def _docker_command(*args: str) -> list[str]:
     return [docker, *args]
 
 
+def _qualification_in_container() -> bool:
+    """Return whether qualification is running inside the Linux Spark image."""
+
+    return os.getenv("DATACOOLIE_QUALIFICATION_CONTAINER") == "1"
+
+
+def _probe_url(service: str) -> str | None:
+    if _qualification_in_container():
+        return _CONTAINER_HTTP_PROBES.get(service)
+    return _HTTP_PROBES.get(service)
+
+
+def _container_service_status(service: str) -> DockerServiceStatus:
+    """Probe Compose services without requiring a Docker socket in the image."""
+
+    container = f"datacoolie-{service}"
+    if service in _CONTAINER_DATABASE_PORTS:
+        host, port = _CONTAINER_DATABASE_PORTS[service]
+        try:
+            with socket.create_connection((host, port), timeout=5):
+                return DockerServiceStatus(service, container, True, "healthy")
+        except OSError:
+            return DockerServiceStatus(service, container, False, None)
+    if service in _CONTAINER_HTTP_PROBES:
+        error = _http_probe_error(service)
+        return DockerServiceStatus(
+            service,
+            container,
+            error is None,
+            "healthy" if error is None else None,
+        )
+    # Spark is the current process image in this mode; the qualification test
+    # exercises its Python/JVM runtime directly rather than a nested Docker
+    # container.
+    if service.startswith("spark"):
+        return DockerServiceStatus(service, container, True, None)
+    return DockerServiceStatus(service, container, False, None)
+
+
 def docker_service_status(service: str) -> DockerServiceStatus:
     """Inspect one compose container without starting or mutating it."""
+
+    if _qualification_in_container():
+        return _container_service_status(service)
 
     container = f"datacoolie-{service}"
     command = _docker_command(
@@ -142,7 +198,7 @@ def docker_service_status(service: str) -> DockerServiceStatus:
 def _http_probe_error(service: str) -> str | None:
     """Return a readiness error for a service with no Compose healthcheck."""
 
-    url = _HTTP_PROBES.get(service)
+    url = _probe_url(service)
     if url is None:
         return None
     try:

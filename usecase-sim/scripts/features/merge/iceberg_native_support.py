@@ -14,7 +14,7 @@ from typing import Any
 import pyarrow as pa
 
 from _stateful_support import PolarsEngine
-from runner._runner_utils import MINIO_STORAGE_OPTIONS, build_iceberg_rest_catalog
+from runner._runner_utils import build_iceberg_rest_catalog, s3_storage_options
 
 
 TECHNICAL_FIELDS: tuple[tuple[str, pa.DataType], ...] = (
@@ -31,14 +31,14 @@ TECHNICAL_FIELDS: tuple[tuple[str, pa.DataType], ...] = (
 def new_catalog() -> Any:
     """Build the shared REST catalog through the runner-owned factory."""
 
-    return build_iceberg_rest_catalog(storage_opts=MINIO_STORAGE_OPTIONS)
+    return build_iceberg_rest_catalog(storage_opts=s3_storage_options())
 
 
 def new_engine(catalog: Any) -> PolarsEngine:
     """Build an unbound engine for one normal Driver invocation."""
 
     return PolarsEngine(
-        storage_options=MINIO_STORAGE_OPTIONS,
+        storage_options=s3_storage_options(),
         iceberg_catalog=catalog,
     )
 
@@ -127,7 +127,7 @@ def rewrite_iceberg_namespace(case: Any, namespace: str) -> dict[str, Any]:
 
 
 __all__ = [
-    "MINIO_STORAGE_OPTIONS",
+    "s3_storage_options",
     "TECHNICAL_FIELDS",
     "native_rows",
     "new_catalog",

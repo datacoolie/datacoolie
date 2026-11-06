@@ -2,13 +2,13 @@
 
 Removes:
     - Local watermark folders (usecase-sim/.runtime/watermarks, usecase-sim/.runtime/watermarks/api)
-    - MinIO watermarks/ prefix in the datacoolie-test bucket
+    - RustFS/S3 watermarks/ prefix in the datacoolie-test bucket
     - dc_framework_watermarks rows in every reachable metadata DB
 
 Usage:
     python usecase-sim/scripts/bootstrap/reset_watermarks.py
     python usecase-sim/scripts/bootstrap/reset_watermarks.py --dry-run
-    python usecase-sim/scripts/bootstrap/reset_watermarks.py --skip-minio --dialects postgresql
+    python usecase-sim/scripts/bootstrap/reset_watermarks.py --skip-rustfs --dialects postgresql
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from _common import (  # noqa: E402
     API_WATERMARKS_DIR,
     DB_URLS,
     FILE_WATERMARKS_DIR,
-    delete_minio_prefix,
+    delete_s3_prefix,
     setup_logging,
     wipe_dir_children,
 )
@@ -43,13 +43,13 @@ def reset_local(dry_run: bool) -> None:
     wipe_dir_children(API_WATERMARKS_DIR,  dry_run=dry_run, label="api watermarks")
 
 
-def reset_minio(dry_run: bool) -> None:
-    logger.info("--- MinIO watermarks/ ---")
+def reset_rustfs(dry_run: bool) -> None:
+    logger.info("--- RustFS/S3 watermarks/ ---")
     try:
-        count = delete_minio_prefix("watermarks/", dry_run=dry_run)
-        logger.info("MinIO watermarks: %d object(s)", count)
+        count = delete_s3_prefix("watermarks/", dry_run=dry_run)
+        logger.info("RustFS/S3 watermarks: %d object(s)", count)
     except Exception as exc:
-        logger.warning("MinIO cleanup skipped: %s", exc)
+        logger.warning("RustFS/S3 cleanup skipped: %s", exc)
 
 
 def reset_db(dialect: str, url: str, dry_run: bool) -> None:
@@ -80,7 +80,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Reset watermarks everywhere")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-local", action="store_true")
-    parser.add_argument("--skip-minio", action="store_true")
+    parser.add_argument("--skip-rustfs", action="store_true")
     parser.add_argument("--skip-db",    action="store_true")
     parser.add_argument("--dialects", nargs="+", default=ALL_DIALECTS,
                         help="DB dialects to target (default: all)")
@@ -98,8 +98,8 @@ def main() -> int:
 
     if not args.skip_local:
         reset_local(args.dry_run)
-    if not args.skip_minio:
-        reset_minio(args.dry_run)
+    if not args.skip_rustfs:
+        reset_rustfs(args.dry_run)
     if not args.skip_db:
         for d in args.dialects:
             if d not in db_urls:

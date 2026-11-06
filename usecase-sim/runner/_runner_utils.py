@@ -3,14 +3,15 @@
 Centralises all session-creation concerns so every runner stays thin:
   - warehouse / metastore paths (pointed at datacoolie/ root)
   - Delta Lake JAR auto-injection
-  - S3A / MinIO config for Hadoop filesystem
+  - S3A / S3-compatible object-store config for Hadoop filesystem
   - Iceberg REST catalog config for Spark (and matching pyiceberg catalog for Polars)
 
 Catalog presets
 ---------------
 "local"
     Delta only.  Iceberg REST catalog points to tabulario/iceberg-rest on
-    http://localhost:8181 (docker-compose.yml), warehouse on MinIO.
+    http://localhost:8181 (docker-compose.yml), warehouse on the local
+    S3-compatible object store.
 
 "unity_catalog"
     Iceberg REST catalog points to Unity Catalog REST endpoint.
@@ -53,16 +54,18 @@ from runner.runtime_paths import (  # noqa: E402
     spark_log_dir,
     spark_profile,
 )
+from runner.s3_config import get_s3_config  # noqa: E402
 
 # ---------------------------------------------------------------------------
-# Windows console encoding — pyiceberg uses ✅/❌ emojis in schema
-# compatibility output that cp1252 cannot encode.  Switching the error
-# handler to "replace" lets the logger write safely without crashing.
+# Windows console encoding — child runners are captured as UTF-8 by the
+# scenario dispatcher.  Configure both the codec and error policy so Unicode
+# log markers (for example the em dash in the result summary) survive the
+# Windows pipe instead of being decoded as U+FFFD by the parent.
 # ---------------------------------------------------------------------------
 if sys.platform == "win32":
     for _stream in (sys.stdout, sys.stderr):
         if hasattr(_stream, "reconfigure"):
-            _stream.reconfigure(errors="replace")
+            _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from datacoolie.platforms import LocalPlatform  # noqa: E402
 
@@ -96,16 +99,9 @@ _SPARK_IVY_DIR = str(spark_dependencies_dir(_SPARK_PROFILE))
 _SPARK_DERBY_LOG_DIR = spark_log_dir(_SPARK_PROFILE)
 
 # ---------------------------------------------------------------------------
-# MinIO defaults (docker-compose.yml)
-# DATACOOLIE_MINIO_ENDPOINT / DATACOOLIE_ICEBERG_URI env vars let the
-# dockerised Spark container redirect these to sibling service names
-# (e.g. http://minio:9000) instead of localhost.
+# S3-compatible defaults. Resolve S3 settings per invocation so Docker child
+# environments and tests can override them without reloading this module.
 # ---------------------------------------------------------------------------
-MINIO_ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
-MINIO_ACCESS_KEY = "minioadmin"
-MINIO_SECRET_KEY = "minioadmin"
-MINIO_REGION = "us-east-1"
-
 DEFAULT_LOCAL_ICEBERG_URI = os.environ.get("DATACOOLIE_ICEBERG_URI", "http://localhost:8181")
 
 # ---------------------------------------------------------------------------
@@ -139,34 +135,19 @@ for _key, _val in _LOCAL_ENV_DEFAULTS.items():
     os.environ.setdefault(_key, _val)
 
 # ---------------------------------------------------------------------------
-# S3A config injected when the metadata path references AWS/MinIO paths.
-# Uses Hadoop S3A filesystem (required by Spark reads/writes).
+# S3A config injected when the metadata path references S3 paths. The values
+# come from the canonical owner at call time.
 # ---------------------------------------------------------------------------
-_S3A_SPARK_CONFIG: dict[str, str] = {
-    "spark.hadoop.fs.s3a.endpoint": MINIO_ENDPOINT,
-    "spark.hadoop.fs.s3a.access.key": MINIO_ACCESS_KEY,
-    "spark.hadoop.fs.s3a.secret.key": MINIO_SECRET_KEY,
-    "spark.hadoop.fs.s3a.path.style.access": "true",
-    "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
-    # Alias the bare ``s3://`` scheme to S3A so paths returned by
-    # AWSPlatform.list_files (which uses ``s3://bucket/key``) are readable
-    # by Spark without needing the caller to rewrite to ``s3a://``.
-    # Note: only register the FileSystem API alias. We intentionally do NOT
-    # alias ``fs.AbstractFileSystem.s3.impl`` to ``S3A`` because that class
-    # hardcodes its scheme to ``"s3a"`` and Hadoop's checkScheme() would
-    # then emit a warning on every FileContext operation (e.g. Delta's
-    # ChecksumHook.WriteChecksum).
-    "spark.hadoop.fs.s3.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
-}
+def s3_storage_options() -> dict[str, str]:
+    """Return fresh Polars/PyIceberg options for the current environment."""
 
-# Polars / pyiceberg storage options (object-store, not Hadoop FS)
-MINIO_STORAGE_OPTIONS: dict[str, str] = {
-    "aws_access_key_id": MINIO_ACCESS_KEY,
-    "aws_secret_access_key": MINIO_SECRET_KEY,
-    "aws_endpoint_url": MINIO_ENDPOINT,
-    "aws_region": MINIO_REGION,
-    "aws_allow_http": "true",
-}
+    return get_s3_config().storage_options()
+
+
+def s3a_spark_config() -> dict[str, str]:
+    """Return fresh Hadoop S3A options for the current environment."""
+
+    return get_s3_config().spark_hadoop_config()
 
 
 def setup_platform(
@@ -177,21 +158,22 @@ def setup_platform(
     """Return a platform instance for the given runner mode.
 
     When ``is_aws`` is ``True``, seed ``storage_opts`` (in place) and the
-    ``AWS_*`` environment variables with the MinIO defaults and return an
+    ``AWS_*`` environment variables with the configured S3 defaults and return an
     :class:`AWSPlatform`.  Otherwise return :class:`LocalPlatform`.
 
     The env-var injection is required because :class:`AWSPlatform` resolves
     credentials through the standard boto3 chain (env vars, ``~/.aws/``,
-    IAM role) — not from constructor arguments — so runners that drive
-    MinIO must export the creds before the boto3 session is built.
+    IAM role) — not from constructor arguments — so runners that drive the
+    local S3-compatible store must export the creds before the boto3 session
+    is built.
 
-    Caller-provided keys in ``storage_opts`` win over the MinIO defaults.
+    Caller-provided keys in ``storage_opts`` win over the configured defaults.
     """
     if not is_aws:
         return LocalPlatform()
     if AWSPlatform is None:
         raise SystemExit("AWSPlatform requires boto3 (pip install boto3)")
-    for k, v in MINIO_STORAGE_OPTIONS.items():
+    for k, v in s3_storage_options().items():
         storage_opts.setdefault(k, v)
     os.environ.setdefault("AWS_ENDPOINT_URL", storage_opts.get("aws_endpoint_url", ""))
     os.environ.setdefault("AWS_ACCESS_KEY_ID", storage_opts.get("aws_access_key_id", ""))
@@ -228,12 +210,10 @@ def _iceberg_rest_spark_config(
         f"spark.sql.catalog.{c}.type": "rest",
         f"spark.sql.catalog.{c}.uri": uri,
         f"spark.sql.catalog.{c}.io-impl": "org.apache.iceberg.aws.s3.S3FileIO",
-        f"spark.sql.catalog.{c}.s3.endpoint": MINIO_ENDPOINT,
-        f"spark.sql.catalog.{c}.s3.access-key-id": MINIO_ACCESS_KEY,
-        f"spark.sql.catalog.{c}.s3.secret-access-key": MINIO_SECRET_KEY,
-        f"spark.sql.catalog.{c}.s3.path-style-access": "true",
-        f"spark.sql.catalog.{c}.s3.region": MINIO_REGION,
     }
+    cfg.update(
+        get_s3_config().iceberg_properties(prefix=f"spark.sql.catalog.{c}.")
+    )
     if token:
         cfg[f"spark.sql.catalog.{c}.token"] = token
     if credential:
@@ -258,6 +238,7 @@ def _resolve_packages(
     ``iceberg-spark-runtime`` + AWS SDK v2 for Iceberg support.
     """
     packages: list[str] = []
+    spark_major = 3
 
     try:
         import importlib_metadata
@@ -308,9 +289,16 @@ def _resolve_packages(
             pass
 
     if needs_s3:
-        packages.append("org.apache.hadoop:hadoop-aws:3.3.4")
+        # Spark 4.1 ships Hadoop 3.4.x; mixing in the Spark 3.5-era 3.3.x
+        # hadoop-aws jar makes S3A parse duration-valued defaults such as
+        # ``60s`` as integers and fails before the first object-store call.
+        hadoop_aws_version = "3.4.2" if spark_major >= 4 else "3.3.4"
+        packages.append(f"org.apache.hadoop:hadoop-aws:{hadoop_aws_version}")
         packages.append("com.amazonaws:aws-java-sdk-bundle:1.12.780")
-        logger.info("Added hadoop-aws + aws-java-sdk-bundle for S3A")
+        logger.info(
+            "Added hadoop-aws %s + aws-java-sdk-bundle for S3A",
+            hadoop_aws_version,
+        )
 
     return ",".join(packages) if packages else None
 
@@ -464,8 +452,8 @@ def build_spark_session(
 
     # S3A Hadoop filesystem config (for s3a:// paths in Spark reads/writes)
     if needs_s3:
-        spark_config.update(_S3A_SPARK_CONFIG)
-        logger.info("Injected S3A Hadoop FS config for MinIO")
+        spark_config.update(s3a_spark_config())
+        logger.info("Injected S3A Hadoop FS config for the configured S3 endpoint")
 
     # JAR packages — Ivy cache lives below the simulator runtime boundary;
     # first run downloads from Maven, subsequent runs reuse the cache.
@@ -559,8 +547,8 @@ def build_iceberg_rest_catalog(
         uc_token: Bearer token for Databricks UC.
         uc_credential: ``client_id:secret`` for OSS UC.
         storage_opts: Polars/boto3-style S3 credentials
-            (``aws_endpoint_url``, etc.). Defaults to MinIO when preset
-            is ``"local"``.
+            (``aws_endpoint_url``, etc.). Defaults to the simulator S3
+            settings when preset is ``"local"``.
     """
     try:
         from pyiceberg.catalog import load_catalog  # noqa: PLC0415
@@ -580,7 +568,7 @@ def build_iceberg_rest_catalog(
 
     opts = dict(storage_opts or {})
     if not opts and catalog_preset == "local":
-        opts = dict(MINIO_STORAGE_OPTIONS)
+        opts = s3_storage_options()
 
     # pyiceberg REST catalog uses s3.* keys, not aws_* boto3-style keys
     props: dict[str, str] = {"type": "rest", "uri": uri}
@@ -589,7 +577,7 @@ def build_iceberg_rest_catalog(
         props["s3.access-key-id"] = opts.get("aws_access_key_id", "")
         props["s3.secret-access-key"] = opts.get("aws_secret_access_key", "")
         props["s3.path-style-access"] = "true"
-        props["s3.region"] = opts.get("aws_region", MINIO_REGION)
+        props["s3.region"] = opts.get("aws_region", get_s3_config().region)
     if uc_token:
         props["token"] = uc_token
     if uc_credential:

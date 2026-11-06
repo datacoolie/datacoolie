@@ -797,7 +797,7 @@
         "local_polars_merge_a9_iceberg_schema"
       ],
       "preconditions": [
-        "Local Docker PostgreSQL/MinIO/Iceberg REST reachable; installed PyIceberg/native Arrow.",
+        "Local Docker PostgreSQL/RustFS/Iceberg REST reachable; installed PyIceberg/native Arrow.",
         "Create fresh namespace/table with declared old schema/spec; normal Driver owns feature write."
       ],
       "expected": "Seed lacks new field; normal Driver transactional merge persists exact union schema field IDs/types, old null, new values and untouched tail.",
@@ -834,7 +834,7 @@
         "local_polars_merge_a9_iceberg_partition"
       ],
       "preconditions": [
-        "Local Docker PostgreSQL/MinIO/Iceberg REST reachable; installed PyIceberg/native Arrow.",
+        "Local Docker PostgreSQL/RustFS/Iceberg REST reachable; installed PyIceberg/native Arrow.",
         "Create fresh namespace/table with declared old schema/spec; normal Driver owns feature write."
       ],
       "expected": "Existing field configured as partition triggers spec change without simultaneous business-column evolution; exact rows/tail and native spec reload/rerun.",

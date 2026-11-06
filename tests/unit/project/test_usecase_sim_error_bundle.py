@@ -136,7 +136,7 @@ def test_bundle_dispatch_runs_all_leaves_after_a_probe_failure_and_records_servi
     assert dispatcher.run_scenarios(["error_messages"], registry) == 1
     expected = [f"error_messages.{step}" for step in EXPECTED_STEPS]
     assert seen == expected
-    assert {"mock-api", "minio", "iceberg-rest"}.issubset(set(services))
+    assert {"mock-api", "rustfs", "iceberg-rest"}.issubset(set(services))
     aggregate = json.loads((log_dir / "error_messages.receipt.json").read_text(encoding="utf-8"))
     assert aggregate["kind"] == "bundle"
     assert "profile" not in aggregate

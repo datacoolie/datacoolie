@@ -20,6 +20,11 @@ def main():
     from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo, DataFlowRuntimeInfo
     from datacoolie.orchestration.runtime import JobRuntimeInfo
 
+    s3_endpoint = os.getenv("DATACOOLIE_SIM_S3_ENDPOINT", "http://rustfs:9000")
+    s3_access_key = os.getenv("DATACOOLIE_SIM_S3_ACCESS_KEY", os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"))
+    s3_secret_key = os.getenv("DATACOOLIE_SIM_S3_SECRET_KEY", os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"))
+    s3_region = os.getenv("DATACOOLIE_SIM_S3_REGION", os.getenv("AWS_REGION", "us-east-1"))
+
     product = Path(__file__).resolve().parents[2]
     manifest = Path(os.environ["DATACOOLIE_GUARD_MANIFEST"])
     dependencies = product / "usecase-sim/.runtime/dependencies/spark/spark35/jars"
@@ -34,9 +39,9 @@ def main():
                .config("spark.jars", ",".join(map(str, jars))))
     for key, value in {"": "org.apache.iceberg.spark.SparkCatalog", "type": "rest",
         "uri": "http://iceberg-rest:8181", "io-impl": "org.apache.iceberg.aws.s3.S3FileIO",
-        "s3.endpoint": "http://minio:9000", "s3.access-key-id": "minioadmin",
-        "s3.secret-access-key": "minioadmin", "s3.path-style-access": "true",
-        "client.region": "us-east-1", "cache-enabled": "false"}.items():
+        "s3.endpoint": s3_endpoint, "s3.access-key-id": s3_access_key,
+        "s3.secret-access-key": s3_secret_key, "s3.path-style-access": "true",
+        "client.region": s3_region, "cache-enabled": "false"}.items():
         builder = builder.config("spark.sql.catalog.catalog" + (f".{key}" if key else ""), value)
     spark = builder.getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")

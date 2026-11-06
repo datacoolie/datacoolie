@@ -1,4 +1,4 @@
-"""Opt-in Iceberg REST/MinIO qualification for the Polars writer."""
+"""Opt-in Iceberg REST/RustFS qualification for the Polars writer."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 
 from tests.support.datatype_config import require_docker_services
+from tests.support.s3_config import host_s3_config
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.datatype_qualification]
@@ -19,7 +20,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.datatype_qualification]
 def test_polars_iceberg_rest_schema_and_values() -> None:
     """Verify a typed frame through the real REST catalog and object store."""
 
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     polars = pytest.importorskip("polars")
     load_catalog = pytest.importorskip("pyiceberg.catalog").load_catalog
     from datacoolie.engines.polars_engine import PolarsEngine
@@ -27,31 +28,13 @@ def test_polars_iceberg_rest_schema_and_values() -> None:
     catalog_uri = os.getenv(
         "DATACOOLIE_QUALIFICATION_ICEBERG_URI", "http://localhost:8181"
     )
-    minio_endpoint = os.getenv(
-        "DATACOOLIE_QUALIFICATION_MINIO_ENDPOINT", "http://localhost:9000"
-    )
-    storage_options = {
-        "aws_access_key_id": os.getenv(
-            "DATACOOLIE_QUALIFICATION_MINIO_ACCESS_KEY", "minioadmin"
-        ),
-        "aws_secret_access_key": os.getenv(
-            "DATACOOLIE_QUALIFICATION_MINIO_SECRET_KEY", "minioadmin"
-        ),
-        "aws_endpoint_url": minio_endpoint,
-        "aws_region": os.getenv("DATACOOLIE_QUALIFICATION_MINIO_REGION", "us-east-1"),
-        "aws_allow_http": "true",
-    }
+    s3_config = host_s3_config()
+    storage_options = s3_config.storage_options()
     catalog = load_catalog(
         "datacoolie-qualification",
         type="rest",
         uri=catalog_uri,
-        **{
-            "s3.endpoint": minio_endpoint,
-            "s3.access-key-id": storage_options["aws_access_key_id"],
-            "s3.secret-access-key": storage_options["aws_secret_access_key"],
-            "s3.path-style-access": "true",
-            "s3.region": storage_options["aws_region"],
-        },
+        **s3_config.iceberg_properties(),
     )
     namespace = f"datatype_qualification_{uuid4().hex[:10]}"
     table_name = f"{namespace}.typed_values"

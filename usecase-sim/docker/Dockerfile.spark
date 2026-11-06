@@ -15,7 +15,7 @@
 #
 # Build context: datacoolie/  (two levels up from usecase-sim/docker/)
 # Usage:
-#   python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark
+#   python usecase-sim/scripts/bootstrap/setup_platform.py --services rustfs iceberg-rest spark
 #   docker exec datacoolie-spark python usecase-sim/runner/run.py --engine spark ...
 
 FROM python:3.11-slim
@@ -47,12 +47,17 @@ ENV DATACOOLIE_SPARK_PROFILE=${DATACOOLIE_SPARK_PROFILE}
 # Pre-install datacoolie Python dependencies (layer-cached between rebuilds).
 # The datacoolie package itself is installed editable from the volume mount at
 # container startup so every code change on the host is immediately visible.
+# This image is also the Linux qualification runtime, so keep the test runner
+# here for reproducible database-matrix checks.
 # ---------------------------------------------------------------------------
 RUN pip install --no-cache-dir \
     "pyspark==${PYSPARK_VERSION}" \
     "delta-spark==${DELTA_SPARK_VERSION}" \
     "polars>=1.0" \
     "deltalake>=0.15" \
+    "pymysql>=1.1" \
+    "pymssql>=2.3" \
+    "oracledb>=2.0" \
     "pyiceberg>=0.12.0,<0.13.0" \
     "boto3>=1.28" \
     "httpx>=0.24" \
@@ -62,7 +67,8 @@ RUN pip install --no-cache-dir \
     "pyarrow" \
     "pandas" \
     "jsonschema>=4" \
-    "importlib_metadata"
+    "importlib_metadata" \
+    "pytest>=8,<9"
 
 # ---------------------------------------------------------------------------
 # Spark defaults — written into the pip-installed pyspark conf dir so every

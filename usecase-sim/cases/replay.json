@@ -110,9 +110,9 @@
         },
         {
           "id": "replay.bounds_chunks_save_no_save.aws_window",
-          "acceptance": "S3-compatible MinIO replay output has six rows with IDs 1001 through 1006 within the requested half-open modified_at bounds, and saved order_date watermark 2024-01-17.",
+          "acceptance": "S3-compatible RustFS replay output has six rows with IDs 1001 through 1006 within the requested half-open modified_at bounds, and saved order_date watermark 2024-01-17.",
           "preconditions": [
-            "Provide the AWS/MinIO-compatible replay fixture and state root.",
+            "Provide the AWS/RustFS-compatible replay fixture and state root.",
             "Run both AWS routes and reconcile IDs, bounds, and checkpoint."
           ],
           "case_ids": [
@@ -710,7 +710,7 @@
     {
       "id": "aws_polars_replay",
       "behavior": "replay.bounds_chunks_save_no_save",
-      "intent": "AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+      "intent": "AWSPlatform + RustFS Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [],
       "scenarios": [
@@ -720,11 +720,11 @@
         "aws_polars_replay"
       ],
       "preconditions": [
-        "Invoke scenario `aws_polars_replay`; stage=`aws_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_aws_validation_polars.json`; replay_start=`2024-01-15T00:00:00`; replay_end=`2024-01-18T00:00:00`; replay_chunk_column=`modified_at`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`; AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+        "Invoke scenario `aws_polars_replay`; stage=`aws_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_aws_validation_polars.json`; replay_start=`2024-01-15T00:00:00`; replay_end=`2024-01-18T00:00:00`; replay_chunk_column=`modified_at`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`; AWSPlatform + RustFS Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
         "Provide required profile(s) `polars/aws` with isolated output, state, and log roots and run the registered validation command.",
         "Run registered scenario `aws_polars_replay`, setup `usecase-sim/scripts/features/replay/prepare_aws_replay.py`, validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`."
       ],
-      "expected": "Scenario `aws_polars_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+      "expected": "Scenario `aws_polars_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + RustFS Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
       "assertion_owners": [
         "usecase-sim/scripts/features/replay/validate_s3_replay_output.py"
       ],
@@ -742,7 +742,7 @@
     {
       "id": "aws_spark_replay",
       "behavior": "replay.bounds_chunks_save_no_save",
-      "intent": "AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+      "intent": "AWSPlatform + RustFS Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [],
       "scenarios": [
@@ -752,11 +752,11 @@
         "aws_spark_replay"
       ],
       "preconditions": [
-        "Invoke scenario `aws_spark_replay`; stage=`aws_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_aws_validation_spark.json`; replay_start=`2024-01-15T00:00:00`; replay_end=`2024-01-18T00:00:00`; replay_chunk_column=`modified_at`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`; AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+        "Invoke scenario `aws_spark_replay`; stage=`aws_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_aws_validation_spark.json`; replay_start=`2024-01-15T00:00:00`; replay_end=`2024-01-18T00:00:00`; replay_chunk_column=`modified_at`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`; AWSPlatform + RustFS Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
         "Provide required profile(s) `spark/aws` with isolated output, state, and log roots and run the registered validation command.",
         "Run registered scenario `aws_spark_replay`, setup `usecase-sim/scripts/features/replay/prepare_aws_replay.py`, validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`."
       ],
-      "expected": "Scenario `aws_spark_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+      "expected": "Scenario `aws_spark_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + RustFS Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
       "assertion_owners": [
         "usecase-sim/scripts/features/replay/validate_s3_replay_output.py"
       ],
@@ -774,7 +774,7 @@
     {
       "id": "aws_polars_iceberg_replay",
       "behavior": "replay.bounds_chunks_save_no_save",
-      "intent": "AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+      "intent": "AWSPlatform + RustFS/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [],
       "scenarios": [
@@ -784,11 +784,11 @@
         "aws_polars_iceberg_replay"
       ],
       "preconditions": [
-        "Invoke scenario `aws_polars_iceberg_replay`; stage=`iceberg_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_iceberg_validation_polars.json`; replay_start=`2024-01-15`; replay_end=`2024-01-18`; replay_chunk_column=`order_date`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`; AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+        "Invoke scenario `aws_polars_iceberg_replay`; stage=`iceberg_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_iceberg_validation_polars.json`; replay_start=`2024-01-15`; replay_end=`2024-01-18`; replay_chunk_column=`order_date`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`; AWSPlatform + RustFS/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
         "Provide required profile(s) `polars/aws` with isolated output, state, and log roots and run the registered validation command.",
         "Run registered scenario `aws_polars_iceberg_replay`, setup `usecase-sim/scripts/features/replay/prepare_iceberg_replay.py`, validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`."
       ],
-      "expected": "Scenario `aws_polars_iceberg_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+      "expected": "Scenario `aws_polars_iceberg_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + RustFS/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
       "assertion_owners": [
         "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py"
       ],
@@ -806,7 +806,7 @@
     {
       "id": "aws_spark_iceberg_replay",
       "behavior": "replay.bounds_chunks_save_no_save",
-      "intent": "AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+      "intent": "AWSPlatform + RustFS/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [],
       "scenarios": [
@@ -816,11 +816,11 @@
         "aws_spark_iceberg_replay"
       ],
       "preconditions": [
-        "Invoke scenario `aws_spark_iceberg_replay`; stage=`iceberg_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_iceberg_validation_spark.json`; replay_start=`2024-01-15`; replay_end=`2024-01-18`; replay_chunk_column=`order_date`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`; AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+        "Invoke scenario `aws_spark_iceberg_replay`; stage=`iceberg_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_iceberg_validation_spark.json`; replay_start=`2024-01-15`; replay_end=`2024-01-18`; replay_chunk_column=`order_date`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`; AWSPlatform + RustFS/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
         "Provide required profile(s) `spark/aws` with isolated output, state, and log roots and run the registered validation command.",
         "Run registered scenario `aws_spark_iceberg_replay`, setup `usecase-sim/scripts/features/replay/prepare_iceberg_replay.py`, validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`."
       ],
-      "expected": "Scenario `aws_spark_iceberg_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+      "expected": "Scenario `aws_spark_iceberg_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + RustFS/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
       "assertion_owners": [
         "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py"
       ],

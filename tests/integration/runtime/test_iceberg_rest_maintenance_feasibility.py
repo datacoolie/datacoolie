@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 
 from tests.support.datatype_config import require_docker_services
+from tests.support.s3_config import host_s3_config
 
 pytestmark = [pytest.mark.integration, pytest.mark.runtime_qualification]
 
@@ -18,19 +19,17 @@ pytestmark = [pytest.mark.integration, pytest.mark.runtime_qualification]
 def _catalog(name, **options):
     from pyiceberg.catalog.rest import RestCatalog
 
+    s3_config = host_s3_config()
     return RestCatalog(name, **{
         "uri": os.getenv("DATACOOLIE_QUALIFICATION_ICEBERG_URI", "http://localhost:8181"),
-        "s3.endpoint": os.getenv("DATACOOLIE_QUALIFICATION_MINIO_ENDPOINT", "http://localhost:9000"),
-        "s3.access-key-id": os.getenv("DATACOOLIE_QUALIFICATION_MINIO_ACCESS_KEY", "minioadmin"),
-        "s3.secret-access-key": os.getenv("DATACOOLIE_QUALIFICATION_MINIO_SECRET_KEY", "minioadmin"),
-        "s3.region": "us-east-1", "s3.path-style-access": "true",
+        **s3_config.iceberg_properties(),
         **options,
     })
 
 
 def test_pyiceberg_rest_refresh_commit_uuid_and_protected_expiration():
     """Prove native UUID guards and expiration effects on unique synthetic tables."""
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     import pyarrow as pa
     from pyiceberg.exceptions import CommitFailedException
     from pyiceberg.schema import Schema
@@ -86,7 +85,7 @@ def test_pyiceberg_rest_refresh_commit_uuid_and_protected_expiration():
 
 def test_rest_server_warehouse_parameter_does_not_establish_scope():
     """Current server ignores requested warehouse; config is not physical identity."""
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     from pyiceberg.schema import Schema
     from pyiceberg.types import LongType, NestedField
     import requests
@@ -110,7 +109,7 @@ def test_rest_server_warehouse_parameter_does_not_establish_scope():
 
 def test_pyiceberg_rest_empty_expiration_is_server_error_without_effects():
     """The installed server rejects an empty update; adapter must detect no-work."""
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     from pyiceberg.exceptions import CommitStateUnknownException
     from pyiceberg.schema import Schema
     from pyiceberg.types import LongType, NestedField
@@ -127,7 +126,7 @@ def test_pyiceberg_rest_empty_expiration_is_server_error_without_effects():
 
 def test_pyiceberg_rest_native_multilevel_namespace_requires_tuple_boundaries():
     """Native tuple succeeds where the current SQL-name helper strips a level."""
-    require_docker_services(("minio", "iceberg-rest"))
+    require_docker_services(("rustfs", "iceberg-rest"))
     from pyiceberg.schema import Schema
     from pyiceberg.types import LongType, NestedField
     from datacoolie.engines._polars.iceberg.schema import table_id
@@ -145,7 +144,7 @@ def test_pyiceberg_rest_native_multilevel_namespace_requires_tuple_boundaries():
 @pytest.mark.spark
 def test_spark35_rest_table_refresh_adopts_replacement_native_probe():
     """Record the unguarded API limitation; this explicitly does not assert A2."""
-    require_docker_services(("spark", "minio", "iceberg-rest"))
+    require_docker_services(("spark", "rustfs", "iceberg-rest"))
     product = Path(__file__).resolve().parents[3]
     result = subprocess.run([
         "docker", "exec", "-w", "/datacoolie", "datacoolie-spark", "python3",

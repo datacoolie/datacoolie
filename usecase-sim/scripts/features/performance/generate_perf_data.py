@@ -1,6 +1,6 @@
 """Generate performance benchmark data at various row counts.
 
-Writes to local filesystem, MinIO (parity mirror), and Iceberg REST catalog.
+Writes to local filesystem, RustFS/S3 (parity mirror), and Iceberg REST catalog.
 
 Usage (from the datacoolie/ directory):
     python usecase-sim/scripts/features/performance/generate_perf_data.py
@@ -25,7 +25,6 @@ sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 from _common import (  # noqa: E402
     ICEBERG_REST_URI,
-    MINIO_BUCKET,
     PERF_INPUT_DIR,
     ensure_bucket,
     iceberg_catalog,
@@ -33,6 +32,7 @@ from _common import (  # noqa: E402
     setup_logging,
     upload_tree,
 )
+from runner.s3_config import get_s3_config  # noqa: E402
 
 logger = setup_logging("generate_perf_data")
 
@@ -59,7 +59,7 @@ LAST_NAMES = [
     "Petrov", "Nakamura", "Okafor", "Sharma", "Laurent", "Santos", "Nguyen",
 ]
 
-ALL_TARGETS  = ["local", "minio", "iceberg"]
+ALL_TARGETS  = ["local", "rustfs", "iceberg"]
 ALL_FORMATS  = ["jsonl", "parquet", "delta", "iceberg"]
 
 
@@ -188,7 +188,7 @@ def main() -> int:
             raise ValueError(f"Unknown target: {t}. Valid: {ALL_TARGETS}")
 
     do_local   = "local"   in targets
-    do_minio   = "minio"   in targets
+    do_rustfs  = "rustfs"  in targets
     do_iceberg = "iceberg" in targets and "iceberg" in formats
 
     catalog = None
@@ -202,11 +202,12 @@ def main() -> int:
         else:
             do_iceberg = False
 
-    if do_minio and not port_open("localhost", 9000):
-        logger.warning("MinIO not reachable — disabling minio target")
-        do_minio = False
-    if do_minio:
-        ensure_bucket(bucket=MINIO_BUCKET)
+    bucket = get_s3_config().bucket
+    if do_rustfs and not port_open("localhost", 9000):
+        logger.warning("RustFS not reachable — disabling rustfs target")
+        do_rustfs = False
+    if do_rustfs:
+        ensure_bucket(bucket=bucket)
 
     logger.info("=== generate_perf_data ===")
     logger.info("sizes=%s formats=%s targets=%s", sizes, formats, targets)
@@ -234,9 +235,9 @@ def main() -> int:
         if do_iceberg and catalog is not None:
             _write_iceberg(table, label, catalog)
 
-        if do_minio:
+        if do_rustfs:
             for local_dir, s3_prefix in written_dirs:
-                upload_tree(local_dir, s3_prefix, bucket=MINIO_BUCKET)
+                upload_tree(local_dir, s3_prefix, bucket=bucket)
 
         del table
 

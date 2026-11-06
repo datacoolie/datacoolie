@@ -1,4 +1,4 @@
-"""Assert the bounded native Spark/Polars Delta and Iceberg observations."""
+"""Assert native Spark/Polars persisted-format observations."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def run_spark_container_cross_engine(
 ) -> None:
     """Keep execution in one simulator container and assert its runtime line."""
 
-    require_docker_services((service_name, "minio", "iceberg-rest"))
+    require_docker_services((service_name, "rustfs", "iceberg-rest"))
     docker = shutil.which("docker")
     if docker is None:  # pragma: no cover - preflight gives the diagnostic
         raise pytest.UsageError("Docker CLI is required for Spark qualification")
@@ -119,6 +119,10 @@ def run_spark_container_cross_engine(
         assert observations["iceberg_spark_to_polars"] == EXPECTED_POLARS
         assert observations["delta_polars_to_spark"] == EXPECTED_SPARK
         assert observations["iceberg_polars_to_spark"] == EXPECTED_SPARK
+        assert observations["s3_parquet_spark_to_polars"] == EXPECTED_POLARS
+        assert observations["s3_parquet_polars_to_spark"] == EXPECTED_SPARK
+        assert observations["s3_delta_spark_to_polars"] == EXPECTED_POLARS
+        assert observations["s3_delta_polars_to_spark"] == EXPECTED_SPARK
     finally:
         shutil.rmtree(run_root, ignore_errors=True)
 

@@ -8,12 +8,13 @@ from uuid import uuid4
 import pytest
 
 from tests.support.datatype_config import require_docker_services
+from tests.support.s3_config import host_s3_properties
 
 pytestmark = [pytest.mark.integration, pytest.mark.runtime_qualification]
 
 
 def test_native_rest_distinct_backend_and_host_container_scope_binding():
-    require_docker_services(("spark", "minio", "iceberg-rest"))
+    require_docker_services(("spark", "rustfs", "iceberg-rest"))
     from pyiceberg.catalog.rest import RestCatalog
     from pyiceberg.schema import Schema
     from pyiceberg.types import LongType, NestedField
@@ -28,8 +29,7 @@ def test_native_rest_distinct_backend_and_host_container_scope_binding():
     assert inspected["Image"] == manifest["image"]
     assert inspected["State"]["Running"]
     assert manifest["warehouse"].startswith("s3://datacoolie-test/rest-scope-qualification/")
-    properties = {"s3.endpoint": "http://localhost:9000", "s3.access-key-id": "minioadmin",
-        "s3.secret-access-key": "minioadmin", "s3.region": "us-east-1"}
+    properties = host_s3_properties()
     catalogs = [RestCatalog("shared", uri="http://localhost:8181", **properties),
                 RestCatalog("isolated", uri=manifest["host_uri"], **properties)]
     namespace = f"maintenance_scope_{uuid4().hex}"
@@ -60,7 +60,7 @@ def test_native_rest_distinct_backend_and_host_container_scope_binding():
 
 @pytest.mark.spark
 def test_spark_guarded_native_actions_reject_replacement_at_native_boundaries():
-    require_docker_services(("spark", "minio", "iceberg-rest"))
+    require_docker_services(("spark", "rustfs", "iceberg-rest"))
     manifest = os.getenv("DATACOOLIE_GUARD_MANIFEST")
     assert manifest, "Pass a container-visible canonical guard manifest for shipping-helper qualification"
     result = subprocess.run(["docker", "exec", "-e", f"DATACOOLIE_GUARD_MANIFEST={manifest}",

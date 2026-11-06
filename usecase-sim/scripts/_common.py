@@ -18,6 +18,7 @@ from runner.runtime_paths import (
     RUNTIME_DIR, DATA_DIR, LOG_DIR, WATERMARKS_DIR,  # noqa: F401 - exported shared paths
     METADATA_DATABASE_DIR, sqlite_metadata_url,
 )
+from runner.s3_config import get_s3_config
 
 logger = logging.getLogger("usecase_sim")
 
@@ -50,14 +51,9 @@ AWS_USE_CASES_JSON = USECASE_SIM / "scenarios/workflows/aws_use_cases.json"
 PERF_USE_CASES_JSON = METADATA_FILE_DIR / "performance.json"
 
 # ---------------------------------------------------------------------------
-# MinIO / Iceberg defaults (match docker-compose.yml + _runner_utils.py)
+# S3-compatible simulator defaults.  Resolve the values at call time through
+# runner.s3_config so host and container child processes share one contract.
 # ---------------------------------------------------------------------------
-MINIO_ENDPOINT = "http://localhost:9000"
-MINIO_ACCESS_KEY = "minioadmin"
-MINIO_SECRET_KEY = "minioadmin"
-MINIO_REGION = "us-east-1"
-MINIO_BUCKET = "datacoolie-test"
-
 ICEBERG_REST_URI = "http://localhost:8181"
 
 # ---------------------------------------------------------------------------
@@ -183,30 +179,36 @@ def wipe_dir_children(directory: Path, dry_run: bool = False, label: str | None 
 
 
 # ---------------------------------------------------------------------------
-# MinIO client (lazy import)
+# S3 client (lazy import)
 # ---------------------------------------------------------------------------
 
-def minio_client():
-    """Return a boto3 S3 client pointing at local MinIO, or None if boto3 missing."""
+def s3_client():
+    """Return a boto3 S3 client for the configured simulator endpoint."""
     try:
         import boto3  # noqa: PLC0415
         from botocore.config import Config  # noqa: PLC0415
     except ImportError:
-        logger.warning("boto3 not installed — MinIO operations disabled")
+        logger.warning("boto3 not installed — S3 operations disabled")
         return None
+    settings = get_s3_config()
     return boto3.client(
         "s3",
-        endpoint_url=MINIO_ENDPOINT,
-        aws_access_key_id=MINIO_ACCESS_KEY,
-        aws_secret_access_key=MINIO_SECRET_KEY,
-        config=Config(signature_version="s3v4"),
-        region_name=MINIO_REGION,
+        endpoint_url=settings.endpoint,
+        aws_access_key_id=settings.access_key,
+        aws_secret_access_key=settings.secret_key,
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
+        region_name=settings.region,
     )
 
 
-def ensure_bucket(client=None, bucket: str = MINIO_BUCKET) -> bool:
-    """Create *bucket* in MinIO if missing. Returns True if reachable."""
-    client = client or minio_client()
+def ensure_bucket(client=None, bucket: str | None = None) -> bool:
+    """Create *bucket* in the configured S3 store if missing."""
+    settings = get_s3_config()
+    bucket = bucket or settings.bucket
+    client = client or s3_client()
     if client is None:
         return False
     existing = [b["Name"] for b in client.list_buckets().get("Buckets", [])]
@@ -218,9 +220,12 @@ def ensure_bucket(client=None, bucket: str = MINIO_BUCKET) -> bool:
     return True
 
 
-def delete_minio_prefix(prefix: str, dry_run: bool = False, bucket: str = MINIO_BUCKET) -> int:
+def delete_s3_prefix(
+    prefix: str, dry_run: bool = False, bucket: str | None = None
+) -> int:
     """Delete all objects under *prefix*. Returns count."""
-    client = minio_client()
+    bucket = bucket or get_s3_config().bucket
+    client = s3_client()
     if client is None:
         return 0
     deleted = 0
@@ -241,9 +246,10 @@ def delete_minio_prefix(prefix: str, dry_run: bool = False, bucket: str = MINIO_
     return deleted
 
 
-def upload_tree(local_root: Path, prefix: str, bucket: str = MINIO_BUCKET) -> int:
+def upload_tree(local_root: Path, prefix: str, bucket: str | None = None) -> int:
     """Upload every file under *local_root* → s3://bucket/<prefix>/<rel>. Returns count."""
-    client = minio_client()
+    bucket = bucket or get_s3_config().bucket
+    client = s3_client()
     if client is None:
         return 0
     if not local_root.exists():
@@ -267,22 +273,19 @@ def upload_tree(local_root: Path, prefix: str, bucket: str = MINIO_BUCKET) -> in
 # ---------------------------------------------------------------------------
 
 def iceberg_catalog():
-    """Return a pyiceberg REST catalog pointing at local Iceberg REST + MinIO."""
+    """Return a PyIceberg REST catalog backed by the configured S3 store."""
     try:
         from pyiceberg.catalog import load_catalog  # noqa: PLC0415
     except ImportError:
         logger.warning("pyiceberg not installed — Iceberg operations disabled")
         return None
+    settings = get_s3_config()
     return load_catalog(
         "datacoolie",
         **{
             "type": "rest",
             "uri": ICEBERG_REST_URI,
-            "s3.endpoint": MINIO_ENDPOINT,
-            "s3.access-key-id": MINIO_ACCESS_KEY,
-            "s3.secret-access-key": MINIO_SECRET_KEY,
-            "s3.path-style-access": "true",
-            "s3.region": MINIO_REGION,
+            **settings.iceberg_properties(),
         },
     )
 

@@ -723,7 +723,7 @@
           "max_workers": 1,
           "timeout_seconds": 120,
           "services": [
-            "minio",
+            "rustfs",
             "iceberg-rest"
           ],
           "pre_clean_paths": [
@@ -819,7 +819,7 @@
             "rewrite_manifests": true
           },
           "services": [
-            "minio",
+            "rustfs",
             "iceberg-rest"
           ],
           "setup": {
@@ -879,7 +879,7 @@
             "rewrite_manifests": true
           },
           "services": [
-            "minio",
+            "rustfs",
             "iceberg-rest"
           ],
           "setup": {
@@ -927,7 +927,7 @@
             ],
             "timeout_seconds": 240
           },
-          "notes": "AWS-MinIO Polars compaction request must fail with an explicit unsupported reason"
+          "notes": "AWS-RustFS Polars compaction request must fail with an explicit unsupported reason"
         }
       },
       {
@@ -949,7 +949,7 @@
             "remove_orphan_files": true
           },
           "services": [
-            "minio",
+            "rustfs",
             "iceberg-rest"
           ],
           "setup": {
@@ -1008,7 +1008,7 @@
             "remove_orphan_files": true
           },
           "services": [
-            "minio",
+            "rustfs",
             "iceberg-rest"
           ],
           "setup": {
@@ -1056,7 +1056,7 @@
             ],
             "timeout_seconds": 240
           },
-          "notes": "AWS-MinIO Polars orphan-file request must fail with an explicit unsupported reason"
+          "notes": "AWS-RustFS Polars orphan-file request must fail with an explicit unsupported reason"
         }
       },
       {
@@ -2184,7 +2184,7 @@
     "column_name_mode": "lower",
     "priority": "P1",
     "services": [
-      "minio"
+      "rustfs"
     ],
     "setup": {
       "script": "usecase-sim/scripts/features/replay/prepare_aws_replay.py",
@@ -2217,7 +2217,7 @@
         "2024-01-18T00:00:00"
       ]
     },
-    "notes": "AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+    "notes": "AWSPlatform + RustFS Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
     "watermark_path": "s3://datacoolie-test/state/replay_validation/aws_polars/watermarks"
   },
   "aws_spark_replay": {
@@ -2230,7 +2230,7 @@
     "column_name_mode": "lower",
     "priority": "P1",
     "services": [
-      "minio"
+      "rustfs"
     ],
     "skip_api_sources": true,
     "setup": {
@@ -2264,7 +2264,7 @@
         "2024-01-18T00:00:00"
       ]
     },
-    "notes": "AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+    "notes": "AWSPlatform + RustFS Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
     "watermark_path": "s3://datacoolie-test/state/replay_validation/aws_spark/watermarks"
   },
   "aws_polars_iceberg_replay": {
@@ -2277,7 +2277,7 @@
     "column_name_mode": "lower",
     "priority": "P1",
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -2308,7 +2308,7 @@
       ],
       "timeout_seconds": 480
     },
-    "notes": "AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+    "notes": "AWSPlatform + RustFS/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
     "watermark_path": "s3://datacoolie-test/state/replay_validation/iceberg_polars/watermarks"
   },
   "aws_spark_iceberg_replay": {
@@ -2321,7 +2321,7 @@
     "column_name_mode": "lower",
     "priority": "P1",
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "skip_api_sources": true,
@@ -2353,7 +2353,7 @@
       ],
       "timeout_seconds": 720
     },
-    "notes": "AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+    "notes": "AWSPlatform + RustFS/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
     "watermark_path": "s3://datacoolie-test/state/replay_validation/iceberg_spark/watermarks"
   },
   "local_polars_file_yaml": {
@@ -2816,7 +2816,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -2892,7 +2892,7 @@
       ],
       "timeout_seconds": 180
     },
-    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses RustFS only."
   },
   "local_spark_delta_maintenance": {
     "engine": "spark",
@@ -3071,7 +3071,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -3154,7 +3154,7 @@
       "in_container": true,
       "timeout_seconds": 360
     },
-    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses RustFS only."
   },
   "local_polars_iceberg_expiration_effect": {
     "engine": "polars",
@@ -3174,7 +3174,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -3276,7 +3276,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -3380,7 +3380,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -3472,7 +3472,7 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "AWS-MinIO Polars expiration effect and known no-work; generated metadata and logs are case-scoped"
+    "notes": "AWS-RustFS Polars expiration effect and known no-work; generated metadata and logs are case-scoped"
   },
   "aws_spark_iceberg_expiration_effect": {
     "engine": "spark",
@@ -3499,7 +3499,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -3609,7 +3609,7 @@
       ],
       "timeout_seconds": 420
     },
-    "notes": "AWS-MinIO guarded Spark expiration effect and known no-work with pinned native manifest"
+    "notes": "AWS-RustFS guarded Spark expiration effect and known no-work with pinned native manifest"
   },
   "aws_polars_file": {
     "engine": "polars",
@@ -3619,7 +3619,7 @@
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P2",
-    "notes": "All AWS file-metadata stages via Polars (requires MinIO + iceberg-rest running)"
+    "notes": "All AWS file-metadata stages via Polars (requires RustFS + iceberg-rest running)"
   },
   "aws_spark_file": {
     "engine": "spark",
@@ -3639,7 +3639,7 @@
     "metadata_path": "s3://datacoolie-test/metadata/aws_use_cases.json",
     "connection": "aws_delta_dest",
     "priority": "P2",
-    "notes": "Maintenance compact + cleanup on AWS delta via Polars (requires MinIO)"
+    "notes": "Maintenance compact + cleanup on AWS delta via Polars (requires RustFS)"
   },
   "aws_polars_iceberg_maintenance": {
     "engine": "polars",
@@ -3660,7 +3660,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -3752,7 +3752,7 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses RustFS only."
   },
   "aws_spark_delta_maintenance": {
     "engine": "spark",
@@ -3761,7 +3761,7 @@
     "metadata_path": "s3://datacoolie-test/metadata/aws_use_cases.json",
     "connection": "aws_delta_dest",
     "priority": "P2",
-    "notes": "Maintenance compact + cleanup on AWS delta via Spark (requires MinIO)"
+    "notes": "Maintenance compact + cleanup on AWS delta via Spark (requires RustFS)"
   },
   "aws_spark_iceberg_maintenance": {
     "engine": "spark",
@@ -3788,7 +3788,7 @@
     },
     "retention_hours": 0,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "setup": {
@@ -3898,7 +3898,7 @@
       ],
       "timeout_seconds": 420
     },
-    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses RustFS only."
   },
   "local_polars_qualified_sql_delta": {
     "engine": "polars",
@@ -3965,7 +3965,7 @@
     "max_workers": 1,
     "timeout_seconds": 120,
     "services": [
-      "minio",
+      "rustfs",
       "iceberg-rest"
     ],
     "pre_clean_paths": [
@@ -5986,7 +5986,7 @@
       "args": [],
       "timeout_seconds": 240
     },
-    "notes": "General SigV4 framework signer; fresh private MinIO case namespace; normal Driver exact rows/schema, actual unsigned/wrong-secret403traces, denied output/checkpoint guards. Static local profile; real IAM/STS/cloud requires separate qualification."
+    "notes": "General SigV4 framework signer; fresh private RustFS case namespace; normal Driver exact rows/schema, actual unsigned/wrong-secret403traces, denied output/checkpoint guards. Static local profile; real IAM/STS/cloud requires separate qualification."
   },
   "local_polars_read_a9_file_info_roundtrip": {
     "engine": "polars",
@@ -6217,7 +6217,7 @@
       "script": "usecase-sim/scripts/features/merge/validate_iceberg_baseline.py",
       "timeout_seconds": 240
     },
-    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/RustFS; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
   },
   "local_polars_scd2_a9_iceberg_history": {
     "engine": "polars",
@@ -6230,7 +6230,7 @@
       "script": "usecase-sim/scripts/features/scd2/validate_iceberg_scd2.py",
       "timeout_seconds": 240
     },
-    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/RustFS; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
   },
   "local_polars_merge_a9_iceberg_schema": {
     "engine": "polars",
@@ -6243,7 +6243,7 @@
       "script": "usecase-sim/scripts/features/merge/validate_iceberg_schema_merge.py",
       "timeout_seconds": 240
     },
-    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/RustFS; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
   },
   "local_polars_merge_a9_iceberg_partition": {
     "engine": "polars",
@@ -6256,7 +6256,7 @@
       "script": "usecase-sim/scripts/features/merge/validate_iceberg_partition_change.py",
       "timeout_seconds": 240
     },
-    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/RustFS; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
   },
   "local_polars_read_a9_iceberg_existing": {
     "engine": "polars",
@@ -6269,7 +6269,7 @@
       "script": "usecase-sim/scripts/features/read/validate_iceberg_existing.py",
       "timeout_seconds": 240
     },
-    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/RustFS; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
   },
   "local_polars_api_date_positive": {
     "engine": "polars",

@@ -1,4 +1,4 @@
-"""Prepare an Iceberg replay + replacement profile on MinIO/REST."""
+"""Prepare an Iceberg replay + replacement profile on RustFS/REST."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
 from runner.metadata_sources import recipe_document
+from runner.s3_config import get_s3_config
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
@@ -23,8 +24,9 @@ from pyiceberg.catalog import load_catalog
 
 
 ROOT = SIM_ROOT
-BUCKET = "datacoolie-test"
-ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
+S3_CONFIG = get_s3_config()
+BUCKET = S3_CONFIG.bucket
+ENDPOINT = S3_CONFIG.endpoint
 ICEBERG_URI = os.environ.get("DATACOOLIE_ICEBERG_URI", "http://localhost:8181")
 
 
@@ -32,9 +34,9 @@ def _client():
     return boto3.client(
         "s3",
         endpoint_url=ENDPOINT,
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", S3_CONFIG.access_key),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", S3_CONFIG.secret_key),
+        region_name=os.environ.get("AWS_REGION", S3_CONFIG.region),
         config=Config(signature_version="s3v4"),
     )
 
@@ -46,10 +48,10 @@ def _catalog():
         uri=ICEBERG_URI,
         **{
             "s3.endpoint": ENDPOINT,
-            "s3.access-key-id": os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
-            "s3.secret-access-key": os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+            "s3.access-key-id": os.environ.get("AWS_ACCESS_KEY_ID", S3_CONFIG.access_key),
+            "s3.secret-access-key": os.environ.get("AWS_SECRET_ACCESS_KEY", S3_CONFIG.secret_key),
             "s3.path-style-access": "true",
-            "s3.region": os.environ.get("AWS_REGION", "us-east-1"),
+            "s3.region": os.environ.get("AWS_REGION", S3_CONFIG.region),
         },
     )
 
@@ -124,7 +126,7 @@ def main() -> int:
     )
     removed_state = _delete_prefix(client, state_prefix)
     print(
-        "prepared MinIO Iceberg replay: "
+        "prepared RustFS Iceberg replay: "
         f"engine={args.engine} source=default.replay_iceberg_source "
         f"metadata=s3://{BUCKET}/{metadata_key} output={output_id} "
         f"removed_state={removed_state}"

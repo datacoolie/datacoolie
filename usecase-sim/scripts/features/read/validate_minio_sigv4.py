@@ -1,4 +1,4 @@
-"""Prove actual APIReader SigV4 with a private MinIO object and denial controls."""
+"""Prove actual APIReader SigV4 with a private RustFS object and denial controls."""
 
 from __future__ import annotations
 import argparse
@@ -14,6 +14,10 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+SIM_ROOT = Path(__file__).resolve().parents[3]
+if str(SIM_ROOT) not in sys.path:
+    sys.path.insert(0, str(SIM_ROOT))
+from runner.s3_config import get_s3_config  # noqa: E402
 from _stateful_support import (  # noqa: E402
     PolarsEngine,
     assert_exact_rows,
@@ -144,21 +148,27 @@ def _phases(root):
     """Called only in the child with an isolated development credential chain."""
     import boto3
     import httpx
+    from botocore.config import Config
     case = resolve_case_root("read", root)
     materialize_fixture(case, "minio_sigv4.json")
     access, secret = (
         os.environ["A9_MINIO_ACCESS_KEY"],
         os.environ["A9_MINIO_SECRET_KEY"],
     )
+    s3_config = get_s3_config()
     bucket = "a9-sigv4-" + uuid.uuid4().hex
     key = "private/records.json"
     rows = [{"id": 1, "value": "signed-only"}, {"id": 2, "value": "Unicode Việt"}]
     s3 = boto3.client(
         "s3",
-        endpoint_url="http://127.0.0.1:9000",
-        region_name="us-east-1",
+        endpoint_url=s3_config.endpoint,
+        region_name=s3_config.region,
         aws_access_key_id=access,
         aws_secret_access_key=secret,
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
     )
     s3.create_bucket(Bucket=bucket)
     s3.put_object(
@@ -168,7 +178,7 @@ def _phases(root):
         ContentType="application/json",
     )
     endpoint = f"/{bucket}/{key}"
-    unsigned = httpx.get("http://127.0.0.1:9000" + endpoint)
+    unsigned = httpx.get(s3_config.endpoint + endpoint)
     assert unsigned.status_code == 403 and "AccessDenied" in unsigned.text
     document = copy.deepcopy(case.document)
     document = json.loads(json.dumps(document).replace("__PRIVATE_OBJECT__", endpoint))
@@ -247,11 +257,11 @@ def _phases(root):
             "rows": rows,
             "exact_schema": EXPECTED_SCHEMA,
             "credential_chain": "child development env only; empty config files; EC2 discovery disabled",
-            "signer": "actual APIReader botocore SigV4; MinIO verifier",
+            "signer": "actual APIReader botocore SigV4; RustFS verifier",
         },
         qualification_gaps=["Real IAM, STS and API Gateway remain unqualified."],
     )
-    payload["profile"]["qualification_scope"] = "host-polars-docker-minio-api-sigv4"
+    payload["profile"]["qualification_scope"] = "host-polars-docker-rustfs-api-sigv4"
     return write_receipt(case, payload)
 
 
@@ -264,8 +274,8 @@ def validate(root=None):
     env_root.mkdir(parents=True, exist_ok=False)
     env = _isolated_environment(
         SimpleNamespace(root=env_root),
-        os.environ.get("DATACOOLIE_MINIO_DEV_ACCESS_KEY", "minioadmin"),
-        os.environ.get("DATACOOLIE_MINIO_DEV_SECRET_KEY", "minioadmin"),
+        os.environ.get("DATACOOLIE_SIM_S3_ACCESS_KEY", get_s3_config().access_key),
+        os.environ.get("DATACOOLIE_SIM_S3_SECRET_KEY", get_s3_config().secret_key),
     )
     command = [sys.executable, "-B", str(Path(__file__).resolve()), "--isolated-child"]
     if root is not None:

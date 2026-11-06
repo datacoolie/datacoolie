@@ -33,10 +33,10 @@ from datacoolie.logging import LogConfig
 from datacoolie.metadata import FileProvider
 from datacoolie.orchestration import DataCoolieDriver
 from _runner_utils import (
-    MINIO_STORAGE_OPTIONS,
     build_iceberg_rest_catalog,
     build_spark_session,
     install_graceful_shutdown,
+    s3_storage_options,
     setup_platform,
 )
 from runner.runtime_paths import DATACOOLIE_ROOT, apply_runtime_defaults
@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--engine", required=True, choices=["polars", "spark"])
     parser.add_argument("--platform", default="local", choices=["local", "aws"],
-                        help="Storage platform: 'local' filesystem or 'aws' (S3/MinIO)")
+                        help="Storage platform: 'local' filesystem or 'aws' (S3-compatible)")
     parser.add_argument(
         "--metadata-path",
         action="append",
@@ -305,13 +305,13 @@ def main() -> None:
 
     if not is_spark:
         if is_aws:
-            for k, v in MINIO_STORAGE_OPTIONS.items():
+            for k, v in s3_storage_options().items():
                 storage_opts.setdefault(k, v)
-            logger.info("Injected S3 storage options for MinIO")
+            logger.info("Injected simulator S3 storage options")
         elif args.catalog_preset == "local" and not storage_opts:
-            for k, v in MINIO_STORAGE_OPTIONS.items():
+            for k, v in s3_storage_options().items():
                 storage_opts.setdefault(k, v)
-            logger.info("Injected S3 storage options for local Iceberg catalog")
+            logger.info("Injected simulator S3 options for local Iceberg catalog")
 
     logger.info(
         "Maintenance — engine: %s | platform: %s | connection: %s | compact: %s | cleanup: %s | retention: %dh | preset: %s",
@@ -326,7 +326,8 @@ def main() -> None:
     try:
         with phase("engine_creation_s"):
             if is_spark:
-                # Local catalog preset targets MinIO (s3://), so S3A JARs are always needed.
+                # Local catalog preset targets the simulator S3 store (s3://),
+                # so S3A JARs are always needed.
                 needs_iceberg = (maintenance_deployment is not None or
                     capabilities["needs_iceberg"]) if capabilities else True
                 needs_s3 = is_aws or (capabilities["needs_s3"] if capabilities

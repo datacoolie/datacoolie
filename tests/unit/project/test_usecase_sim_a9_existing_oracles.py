@@ -185,4 +185,4 @@ def test_sigv4_negative_controls_start_from_pristine_signed_document(
         (2, "none", correct_secret),
         (3, "aws_sigv4", "invalid-development-signature"),
     ]
-    assert result["profile"]["qualification_scope"] == "host-polars-docker-minio-api-sigv4"
+    assert result["profile"]["qualification_scope"] == "host-polars-docker-rustfs-api-sigv4"

@@ -678,7 +678,7 @@
           "id": "read.api_request_auth_pagination.sigv4_live_auth",
           "acceptance": "Configured SigV4 credentials/signers obey common request contracts; normal Driver reads a private object with exact persisted rows/schema and rejects unsigned/wrong-secret requests without output/checkpoint.",
           "preconditions": [
-            "Botocore with controlled provider/clock for general unit verification; local MinIO with isolated static development keys for native denial verification."
+            "Botocore with controlled provider/clock for general unit verification; local RustFS with isolated static development keys for native denial verification."
           ],
           "case_ids": [
             "local_polars_read_a9_minio_sigv4"
@@ -697,7 +697,7 @@
             "tests/unit/sources/test_api_sigv4_parallel.py::test_api_reader_parallel_ranges_sign_each_request_with_one_sdk_snapshot"
           ],
           "coverage": "asserted",
-          "gap": "General credential precedence/fallback/errors, per-request refresh/signature and configured generic/S3 parity owners verified. Native MinIO static-credential oracle verified; real IAM/STS/TLS/cloud backend qualification remains separate.",
+          "gap": "General credential precedence/fallback/errors, per-request refresh/signature and configured generic/S3 parity owners verified. Native RustFS static-credential oracle verified; real IAM/STS/TLS/cloud backend qualification remains separate.",
           "next_action": "qualify_profile"
         },
         {
@@ -3537,7 +3537,7 @@
     {
       "id": "local_polars_read_a9_minio_sigv4",
       "behavior": "read.api_request_auth_pagination",
-      "intent": "Actual APIReader SigV4 reads private MinIO JSON; unsigned and wrong-secret requests fail with no output/checkpoint.",
+      "intent": "Actual APIReader SigV4 reads private RustFS JSON; unsigned and wrong-secret requests fail with no output/checkpoint.",
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
@@ -3553,10 +3553,10 @@
         "local_polars_read_a9_minio_sigv4"
       ],
       "preconditions": [
-        "Local MinIO ready on loopback; installed botocore and explicit injected development credentials in isolated child environment.",
+        "Local RustFS ready on loopback; installed botocore and explicit injected development credentials in isolated child environment.",
         "Fresh private case-owned bucket/object and runtime identity; positive1/0/0 and actual403negative0/1/0."
       ],
-      "expected": "Actual APIReader SigV4 reads private MinIO JSON; unsigned and wrong-secret requests fail with no output/checkpoint.",
+      "expected": "Actual APIReader SigV4 reads private RustFS JSON; unsigned and wrong-secret requests fail with no output/checkpoint.",
       "assertion_owners": [
         "usecase-sim/scripts/features/read/validate_minio_sigv4.py::validate"
       ],
@@ -3567,7 +3567,7 @@
         }
       ],
       "coverage": "asserted",
-      "gap": "Normal Driver positive and actual backend denial traces have exact persisted data/schema and no-write/checkpoint oracles. Static development-credential MinIO profile; real IAM/STS/cloud remains separately unqualified.",
+      "gap": "Normal Driver positive and actual backend denial traces have exact persisted data/schema and no-write/checkpoint oracles. Static development-credential RustFS profile; real IAM/STS/cloud remains separately unqualified.",
       "dependencies": [],
       "next_action": "qualify_profile"
     },

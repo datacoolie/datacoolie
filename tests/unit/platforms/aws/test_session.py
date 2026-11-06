@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from datacoolie.platforms.aws_platform import AWSPlatform
 
@@ -46,6 +47,22 @@ def test_explicit_endpoint_overrides_platform_storage_endpoint() -> None:
     )
 
     assert session.client.call_args.kwargs["endpoint_url"] == "http://custom:9001"
+
+
+def test_custom_s3_client_removes_expect_header_without_affecting_native_s3() -> None:
+    session = MagicMock()
+    custom_client = MagicMock()
+    native_client = MagicMock()
+    session.client.side_effect = [custom_client, native_client]
+
+    create_client(session, "s3", storage_endpoint_url="http://localhost:9000")
+    handler = custom_client.meta.events.register.call_args.args[1]
+    request = SimpleNamespace(headers={"Expect": "100-continue"})
+    handler(request)
+
+    assert request.headers == {}
+    create_client(session, "s3")
+    native_client.meta.events.register.assert_not_called()
 
 
 def test_internal_clients_are_reused_under_thread_race() -> None:

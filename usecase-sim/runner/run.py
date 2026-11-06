@@ -37,11 +37,11 @@ from datacoolie.core import DataCoolieRunConfig
 from datacoolie.logging import LogConfig
 from datacoolie.orchestration import DataCoolieDriver
 from _runner_utils import (
-    MINIO_STORAGE_OPTIONS,
     build_iceberg_rest_catalog,
     build_spark_session,
     replay_and_report,
     run_and_report,
+    s3_storage_options,
     setup_platform,
 )
 from runner.runtime_paths import (
@@ -73,7 +73,7 @@ def parse_args() -> argparse.Namespace:
         "--platform",
         default="local",
         choices=["local", "aws"],
-        help="Storage platform: 'local' filesystem or 'aws' (S3/MinIO)",
+        help="Storage platform: 'local' filesystem or 'aws' (S3-compatible)",
     )
 
     # File source
@@ -518,17 +518,17 @@ def main() -> None:
     storage_opts = _parse_kv_list(args.storage_options)
     extra_config = _parse_kv_list(args.spark_config)
 
-    # Polars path: inject MinIO storage opts for local Iceberg writes too.
+    # Polars path: inject simulator S3 options for local Iceberg writes too.
     # Spark path: storage opts start empty (S3A config handled inside build_spark_session).
     if not is_spark:
         if is_aws:
-            for k, v in MINIO_STORAGE_OPTIONS.items():
+            for k, v in s3_storage_options().items():
                 storage_opts.setdefault(k, v)
-            logger.info("Injected S3 storage options for MinIO")
+            logger.info("Injected simulator S3 storage options")
         elif needs_iceberg and args.catalog_preset == "local" and not storage_opts:
-            for k, v in MINIO_STORAGE_OPTIONS.items():
+            for k, v in s3_storage_options().items():
                 storage_opts.setdefault(k, v)
-            logger.info("Injected S3 storage options for local Iceberg catalog")
+            logger.info("Injected simulator S3 options for local Iceberg catalog")
 
     if not args.stage and is_spark:
         logger.warning("--stage '' was passed; ALL dataflows will be executed.")

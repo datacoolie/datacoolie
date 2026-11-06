@@ -8224,7 +8224,7 @@
     {
       "id": "aws_polars_file",
       "behavior": "workflows.broad_baseline_bundles",
-      "intent": "All AWS file-metadata stages via Polars (requires MinIO + iceberg-rest running)",
+      "intent": "All AWS file-metadata stages via Polars (requires RustFS + iceberg-rest running)",
       "contract": "usecase-sim/runner/run_scenario.py",
       "flows": [],
       "scenarios": [

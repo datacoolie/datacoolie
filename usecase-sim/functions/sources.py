@@ -69,9 +69,13 @@ def sql_query_orders_iceberg(engine, source, watermark_start=None, watermark_end
     namespace = source.connection.database or "default"
 
     if hasattr(engine, "register_iceberg_tables"):
-        # Polars: qualify by namespace so the query stays unambiguous if the
-        # same table has also been registered with a one-level logical name.
-        registered = engine.register_iceberg_tables(namespace)
+        # Polars: qualify by namespace and discover only the table this
+        # function reads.  The shared engine may execute other Delta/Iceberg
+        # flows concurrently; indexing every table makes an otherwise valid
+        # short name (for example ``orders_appended``) ambiguous.
+        registered = engine.register_iceberg_tables(
+            namespace, include="orders_overwritten"
+        )
         if not registered:
             return None
         table_ref = f"{namespace}.orders_overwritten"
@@ -119,7 +123,9 @@ def read_iceberg_orders_query(engine, source, watermark_start=None, watermark_en
     namespace = source.connection.database or "default"
 
     if hasattr(engine, "register_iceberg_tables"):
-        registered = engine.register_iceberg_tables(namespace)
+        registered = engine.register_iceberg_tables(
+            namespace, include="orders_from_json"
+        )
         if not registered:
             return None
         table_ref = f"{namespace}.orders_from_json"

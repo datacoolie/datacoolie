@@ -71,23 +71,28 @@ services:
       retries: 15
       start_period: 60s
 
-  minio:
-    image: minio/minio:latest
-    container_name: datacoolie-minio
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: datacoolie-rustfs
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
+      RUSTFS_ACCESS_KEY: "${DATACOOLIE_SIM_S3_ACCESS_KEY:-minioadmin}"
+      RUSTFS_SECRET_KEY: "${DATACOOLIE_SIM_S3_SECRET_KEY:-minioadmin}"
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health/ready"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 6
+      start_period: 10s
 
   iceberg-rest:
     image: tabulario/iceberg-rest:latest
@@ -95,22 +100,22 @@ services:
     ports:
       - "8181:8181"
     environment:
-      # Warehouse lives on MinIO — REST server owns this location
-      CATALOG_WAREHOUSE: s3://datacoolie-test/iceberg-warehouse
+      # Warehouse lives on RustFS — REST server owns this location
+      CATALOG_WAREHOUSE: "s3://${DATACOOLIE_SIM_S3_BUCKET:-datacoolie-test}/iceberg-warehouse"
       CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
-      # MinIO endpoint (Docker internal hostname)
-      CATALOG_S3_ENDPOINT: http://minio:9000
-      CATALOG_S3_ACCESS__KEY__ID: minioadmin
-      CATALOG_S3_SECRET__ACCESS__KEY: minioadmin
+      # RustFS endpoint (Docker internal hostname)
+      CATALOG_S3_ENDPOINT: http://rustfs:9000
+      CATALOG_S3_ACCESS__KEY__ID: "${DATACOOLIE_SIM_S3_ACCESS_KEY:-minioadmin}"
+      CATALOG_S3_SECRET__ACCESS__KEY: "${DATACOOLIE_SIM_S3_SECRET_KEY:-minioadmin}"
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
-      CATALOG_S3_REGION: us-east-1
-      AWS_REGION: us-east-1
+      CATALOG_S3_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
+      AWS_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
       # PostgreSQL backend — eliminates SQLite BUSY errors under concurrency
       CATALOG_URI: "jdbc:postgresql://postgres:5432/iceberg_catalog"
       CATALOG_JDBC_USER: datacoolie
       CATALOG_JDBC_PASSWORD: datacoolie
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -122,9 +127,19 @@ services:
       - "8080:8080"
     volumes:
       - ./trino-conf/catalog:/etc/trino/catalog
+    environment:
+      AWS_ACCESS_KEY_ID: "${DATACOOLIE_SIM_S3_ACCESS_KEY:-minioadmin}"
+      AWS_SECRET_ACCESS_KEY: "${DATACOOLIE_SIM_S3_SECRET_KEY:-minioadmin}"
+      AWS_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
     depends_on:
       - iceberg-rest
-      - minio
+      - rustfs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/v1/info >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   mock-api:
     build:
@@ -173,7 +188,8 @@ services:
       SQLPAD_CONNECTIONS__trino__catalog: iceberg
       SQLPAD_CONNECTIONS__trino__schema: default
     depends_on:
-      - trino
+      trino:
+        condition: service_healthy
 
   # ---------------------------------------------------------------------------
   # Containerised PySpark — avoids Windows JVM / Python-path issues.
@@ -203,7 +219,11 @@ services:
       # Override localhost defaults so the container resolves sibling services
       # by their docker-compose service names instead of the host loopback.
       DATACOOLIE_ICEBERG_URI: http://iceberg-rest:8181
-      DATACOOLIE_MINIO_ENDPOINT: http://minio:9000
+      DATACOOLIE_SIM_S3_ENDPOINT: http://rustfs:9000
+      DATACOOLIE_SIM_S3_ACCESS_KEY: "${DATACOOLIE_SIM_S3_ACCESS_KEY:-minioadmin}"
+      DATACOOLIE_SIM_S3_SECRET_KEY: "${DATACOOLIE_SIM_S3_SECRET_KEY:-minioadmin}"
+      DATACOOLIE_SIM_S3_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
+      DATACOOLIE_SIM_S3_BUCKET: "${DATACOOLIE_SIM_S3_BUCKET:-datacoolie-test}"
       # SQLite path uses the absolute container path (volume-mounted)
       DATACOOLIE_SQLITE_DB: /datacoolie/usecase-sim/.runtime/data/input/sqlite/orders.db
       # DB credentials (hosts still resolve to docker service names — P1 only)
@@ -224,10 +244,10 @@ services:
       # AWS SDK env vars — required by Iceberg S3FileIO (JVM-side) which uses
       # DefaultAwsRegionProviderChain when catalog catalog properties are not
       # resolved at the executor level.
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
-      AWS_ENDPOINT_URL_S3: http://minio:9000
+      AWS_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
+      AWS_ACCESS_KEY_ID: "${DATACOOLIE_SIM_S3_ACCESS_KEY:-minioadmin}"
+      AWS_SECRET_ACCESS_KEY: "${DATACOOLIE_SIM_S3_SECRET_KEY:-minioadmin}"
+      AWS_ENDPOINT_URL_S3: http://rustfs:9000
     extra_hosts:
       # Provide host.docker.internal so the Spark container can reach DB
       # containers via the Windows host's published ports.
@@ -239,6 +259,12 @@ services:
       # immediately visible; output data written here appears on the host too.
       - ../..:/datacoolie
     working_dir: /datacoolie
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import datacoolie, pyspark, pytest, pymysql, pymssql, oracledb, deltalake, pyiceberg'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   # ---------------------------------------------------------------------------
   # Opt-in Spark 4.1 qualification runtime.
@@ -262,7 +288,11 @@ services:
     environment:
       DATACOOLIE_SPARK_PROFILE: spark4
       DATACOOLIE_ICEBERG_URI: http://iceberg-rest:8181
-      DATACOOLIE_MINIO_ENDPOINT: http://minio:9000
+      DATACOOLIE_SIM_S3_ENDPOINT: http://rustfs:9000
+      DATACOOLIE_SIM_S3_ACCESS_KEY: "${DATACOOLIE_SIM_S3_ACCESS_KEY:-minioadmin}"
+      DATACOOLIE_SIM_S3_SECRET_KEY: "${DATACOOLIE_SIM_S3_SECRET_KEY:-minioadmin}"
+      DATACOOLIE_SIM_S3_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
+      DATACOOLIE_SIM_S3_BUCKET: "${DATACOOLIE_SIM_S3_BUCKET:-datacoolie-test}"
       DATACOOLIE_SQLITE_DB: /datacoolie/usecase-sim/.runtime/data/input/sqlite/orders.db
       DATACOOLIE_PG_USER: datacoolie
       DATACOOLIE_PG_PASS: datacoolie
@@ -278,19 +308,25 @@ services:
       DATACOOLIE_API_BASIC_PASS: password123
       DATACOOLIE_OAUTH2_CLIENT_ID: datacoolie-client
       DATACOOLIE_OAUTH2_CLIENT_SECRET: supersecret
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
-      AWS_ENDPOINT_URL_S3: http://minio:9000
+      AWS_REGION: "${DATACOOLIE_SIM_S3_REGION:-us-east-1}"
+      AWS_ACCESS_KEY_ID: "${DATACOOLIE_SIM_S3_ACCESS_KEY:-minioadmin}"
+      AWS_SECRET_ACCESS_KEY: "${DATACOOLIE_SIM_S3_SECRET_KEY:-minioadmin}"
+      AWS_ENDPOINT_URL_S3: http://rustfs:9000
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ../..:/datacoolie
     working_dir: /datacoolie
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import datacoolie, pyspark, pytest, pymysql, pymssql, oracledb, deltalake, pyiceberg'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
 volumes:
   postgres_data:
   mysql_data:
   mssql_data:
   oracle_data:
-  minio_data:
+  rustfs_data:

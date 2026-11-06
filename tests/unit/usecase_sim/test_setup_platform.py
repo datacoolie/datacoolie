@@ -57,6 +57,35 @@ def test_healthy_subset_still_checks_exposed_ports(platform_setup, monkeypatch):
     ports.assert_called_once_with(["oracle"], 42)
 
 
+def test_rustfs_subset_seeds_the_configured_bucket(platform_setup, monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["setup_platform.py", "--services", "rustfs"])
+    monkeypatch.setattr(platform_setup.subprocess, "call", Mock(return_value=0))
+    monkeypatch.setattr(platform_setup, "_wait_for_ports", Mock(return_value=True))
+    ensure_bucket = Mock()
+    monkeypatch.setattr(platform_setup, "_ensure_rustfs_bucket", ensure_bucket)
+
+    assert platform_setup.main() == 0
+    ensure_bucket.assert_called_once_with()
+
+
+def test_rustfs_bucket_failure_blocks_success(platform_setup, monkeypatch):
+    monkeypatch.setattr(platform_setup, "_ensure_rustfs_bucket", Mock(return_value=False))
+    monkeypatch.setattr(sys, "argv", ["setup_platform.py", "--services", "rustfs"])
+    monkeypatch.setattr(platform_setup.subprocess, "call", Mock(return_value=0))
+    monkeypatch.setattr(platform_setup, "_wait_for_ports", Mock(return_value=True))
+
+    assert platform_setup.main() == 2
+
+
+def test_mssql_database_failure_blocks_success(platform_setup, monkeypatch):
+    monkeypatch.setattr(platform_setup, "_ensure_mssql_database", Mock(return_value=False))
+    monkeypatch.setattr(sys, "argv", ["setup_platform.py", "--services", "mssql"])
+    monkeypatch.setattr(platform_setup.subprocess, "call", Mock(return_value=0))
+    monkeypatch.setattr(platform_setup, "_wait_for_ports", Mock(return_value=True))
+
+    assert platform_setup.main() == 2
+
+
 def test_healthy_container_with_unreachable_port_fails(platform_setup, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["setup_platform.py", "--services", "oracle"])
     monkeypatch.setattr(platform_setup.subprocess, "call", Mock(return_value=0))

@@ -548,7 +548,7 @@ persisted schema/value assertions and cross-engine comparison.
 | metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
-| Docker needs | `minio` + `iceberg-rest` |
+| Docker needs | `rustfs` + `iceberg-rest` |
 
 ### `local_spark_delta_maintenance`
 
@@ -571,7 +571,7 @@ persisted schema/value assertions and cross-engine comparison.
 | metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
-| Docker needs | `minio` + `iceberg-rest` |
+| Docker needs | `rustfs` + `iceberg-rest` |
 
 ### Qualified Iceberg SQL scenarios
 
@@ -579,17 +579,17 @@ persisted schema/value assertions and cross-engine comparison.
 default catalog mapping, structured `logical_prefix` replacement, short-name
 resolution, include/exclude filters, and lazy reuse.
 `error_messages.local_polars_qualified_sql_iceberg_ambiguity` contains exactly one expected
-failure dataflow. Both use explicit `minio` and `iceberg-rest` services and
+failure dataflow. Both use explicit `rustfs` and `iceberg-rest` services and
 scoped `qsql_*` namespaces in the local REST catalog. Registration is runner
 setup; each dataflow uses a normal Iceberg source and metadata `source.query`.
 
 ---
 
-## P2 — AWS platform (MinIO + Iceberg REST)
+## P2 — AWS platform (RustFS + Iceberg REST)
 
-### Qualification receipt — 2026-09-29
+### Historical MinIO qualification receipt — 2026-09-29
 
-These profiles were run with the existing Compose services `minio`, `postgres`,
+These profiles were run before the RustFS cutover with the then-existing Compose services `minio`, `postgres`,
 `iceberg-rest`, `datacoolie-spark` and `mock-api`. The runner constructs
 `AWSPlatform` with `endpoint_url=http://minio:9000`; therefore the receipt is for
 the AWS-compatible S3/REST profile backed by MinIO. It must not be read as proof
@@ -672,7 +672,7 @@ with real AWS S3, Glue, or Athena.
 | metadata_path | `s3://datacoolie-test/metadata/aws_use_cases.json` |
 | stage | `""` |
 | priority | P2 |
-| Docker needs | `minio` + `iceberg-rest` |
+| Docker needs | `rustfs` + `iceberg-rest` |
 
 ### `aws_spark_file`
 
@@ -685,7 +685,7 @@ with real AWS S3, Glue, or Athena.
 | stage | `""` |
 | skip_api_sources | `true` |
 | priority | P2 |
-| Docker needs | `minio` + `iceberg-rest` |
+| Docker needs | `rustfs` + `iceberg-rest` |
 
 ### `aws_polars_delta_maintenance`
 
@@ -697,7 +697,7 @@ with real AWS S3, Glue, or Athena.
 | metadata_path | `s3://datacoolie-test/metadata/aws_use_cases.json` |
 | connection | `aws_delta_dest` |
 | priority | P2 |
-| Docker needs | `minio` |
+| Docker needs | `rustfs` |
 
 ### `aws_polars_iceberg_maintenance`
 
@@ -709,7 +709,7 @@ with real AWS S3, Glue, or Athena.
 | metadata_path | `s3://datacoolie-test/metadata/aws_use_cases.json` |
 | connection | `aws_iceberg_dest` |
 | priority | P2 |
-| Docker needs | `minio` + `iceberg-rest` |
+| Docker needs | `rustfs` + `iceberg-rest` |
 
 ### `aws_spark_delta_maintenance`
 
@@ -721,7 +721,7 @@ with real AWS S3, Glue, or Athena.
 | metadata_path | `s3://datacoolie-test/metadata/aws_use_cases.json` |
 | connection | `aws_delta_dest` |
 | priority | P2 |
-| Docker needs | `minio` |
+| Docker needs | `rustfs` |
 
 ### `aws_spark_iceberg_maintenance`
 
@@ -733,7 +733,7 @@ with real AWS S3, Glue, or Athena.
 | metadata_path | `s3://datacoolie-test/metadata/aws_use_cases.json` |
 | connection | `aws_iceberg_dest` |
 | priority | P2 |
-| Docker needs | `minio` + `iceberg-rest` |
+| Docker needs | `rustfs` + `iceberg-rest` |
 
 ---
 

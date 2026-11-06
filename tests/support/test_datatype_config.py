@@ -80,6 +80,27 @@ def test_docker_service_status_reports_container_state(monkeypatch: pytest.Monke
     )
 
 
+def test_container_qualification_probes_database_service_dns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+    monkeypatch.setenv("DATACOOLIE_QUALIFICATION_CONTAINER", "1")
+    monkeypatch.setattr(
+        "tests.support.datatype_config.socket.create_connection",
+        lambda address, timeout: Connection(),
+    )
+
+    assert docker_service_status("mssql") == DockerServiceStatus(
+        "mssql", "datacoolie-mssql", True, "healthy"
+    )
+
+
 def test_database_preflight_requires_healthy_container(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
